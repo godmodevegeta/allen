@@ -8,7 +8,9 @@ paths used by the live dashboard.
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -40,10 +42,13 @@ class FakeAgent:
 
     instances = []
     fail_at = None
+    execution_delay = 0.0
+    gut_delay = 0.0
 
-    def __init__(self):
+    def __init__(self, model=None):
         self.facade = None
         self.llm = None
+        self.model = model
         self.bootstrap_args = None
         FakeAgent.instances.append(self)
 
@@ -141,6 +146,7 @@ class FakeAgent:
         }
 
     def generate_execution_pack(self, diagnosis, focus_group):
+        time.sleep(self.execution_delay)
         if self.fail_at == "execution":
             raise RuntimeError("synthetic failure")
         assert focus_group
@@ -157,6 +163,7 @@ class FakeAgent:
         }
 
     def generate_gut_vs_graph_control(self, diagnosis, focus_group):
+        time.sleep(self.gut_delay)
         if self.fail_at == "gut":
             raise RuntimeError("synthetic failure")
         assert focus_group
@@ -167,6 +174,8 @@ class AppSmokeTests(unittest.TestCase):
     def setUp(self):
         FakeAgent.instances = []
         FakeAgent.fail_at = None
+        FakeAgent.execution_delay = 0.0
+        FakeAgent.gut_delay = 0.0
         self.client = TestClient(app_module.app)
 
     def tearDown(self):
@@ -188,6 +197,7 @@ class AppSmokeTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertIn("preset_source", payload)
         self.assertIn("live_busy", payload)
+        self.assertIn("live_model", payload)
         alias = self.client.get("/health")
         self.assertEqual(alias.status_code, 200)
         self.assertTrue(alias.json()["ok"])
@@ -199,7 +209,27 @@ class AppSmokeTests(unittest.TestCase):
         html = response.text
         self.assertIn("Cultural X-Ray", html)
         self.assertIn("EventSource", html)
+        self.assertIn("GTM Execution Hub", html)
+        self.assertIn("live_model", html)
+        self.assertNotIn("owner" + ".com", html.lower())
         self.assertNotIn("\u2014", html)
+
+    def test_live_model_resolution(self):
+        with patch.dict(
+            os.environ,
+            {"LIVE_LLM_MODEL": "", "LLM_MODEL": "preset-model"},
+            clear=False,
+        ):
+            self.assertEqual(app_module._live_model(), "preset-model")
+        with patch.dict(
+            os.environ,
+            {"LIVE_LLM_MODEL": "live-model", "LLM_MODEL": "preset-model"},
+            clear=False,
+        ):
+            self.assertEqual(app_module._live_model(), "live-model")
+            with patch.object(app_module, "AlfredAgent", FakeAgent):
+                self.stream("/api/stream?preset=bonafini")
+        self.assertEqual(FakeAgent.instances[0].model, "live-model")
 
     def test_preset_headers_and_shape(self):
         response = self.client.get("/api/preset/bonafini")
@@ -237,7 +267,7 @@ class AppSmokeTests(unittest.TestCase):
             events = self.stream("/api/stream?preset=bonafini")
         names = [name for name, _ in events]
         self.assertEqual(
-            names,
+            names[:8],
             [
                 "status",
                 "diagnosis",
@@ -246,17 +276,48 @@ class AppSmokeTests(unittest.TestCase):
                 "status",
                 "focus_group",
                 "status",
-                "execution_pack",
                 "status",
-                "gut_vs_graph",
-                "done",
             ],
         )
+        self.assertEqual(set(names[8:10]), {"execution_pack", "gut_vs_graph"})
+        self.assertEqual(names[-1], "done")
+        self.assertEqual(len(names), 11)
         stages = [payload["stage"] for name, payload in events if name == "status"]
         self.assertEqual(stages, [1, 2, 3, 4, 5])
         self.assertTrue(all(event != "error" for event in names))
         self.assertFalse(app_module.LIVE_LOCK.locked())
         self.assertEqual(len(FakeAgent.instances), 1)
+
+    def test_live_stream_emits_first_completed_stage(self):
+        FakeAgent.execution_delay = 0.3
+        FakeAgent.gut_delay = 0.0
+        with patch.object(app_module, "AlfredAgent", FakeAgent):
+            events = self.stream("/api/stream?preset=bonafini")
+        names = [name for name, _ in events]
+        final_results = [name for name in names if name in {"execution_pack", "gut_vs_graph"}]
+        self.assertEqual(final_results, ["gut_vs_graph", "execution_pack"])
+        self.assertEqual(names[-1], "done")
+        self.assertFalse(app_module.LIVE_LOCK.locked())
+
+    def test_live_stream_final_stages_run_concurrently(self):
+        barrier = threading.Barrier(2)
+
+        class BarrierAgent(FakeAgent):
+            def generate_execution_pack(self, diagnosis, focus_group):
+                barrier.wait(timeout=2.0)
+                return super().generate_execution_pack(diagnosis, focus_group)
+
+            def generate_gut_vs_graph_control(self, diagnosis, focus_group):
+                barrier.wait(timeout=2.0)
+                return super().generate_gut_vs_graph_control(diagnosis, focus_group)
+
+        with patch.object(app_module, "AlfredAgent", BarrierAgent):
+            events = self.stream("/api/stream?preset=bonafini")
+        names = [name for name, _ in events]
+        self.assertIn("execution_pack", names)
+        self.assertIn("gut_vs_graph", names)
+        self.assertEqual(names[-1], "done")
+        self.assertFalse(app_module.LIVE_LOCK.locked())
 
     def test_live_stream_custom_bootstrap(self):
         with patch.object(app_module, "AlfredAgent", FakeAgent):
@@ -277,8 +338,8 @@ class AppSmokeTests(unittest.TestCase):
 
     def test_live_stream_safe_error(self):
         class FailingAgent(FakeAgent):
-            def __init__(self):
-                super().__init__()
+            def __init__(self, model=None):
+                super().__init__(model=model)
                 self.fail_at = "execution"
 
         with patch.object(app_module, "AlfredAgent", FailingAgent):

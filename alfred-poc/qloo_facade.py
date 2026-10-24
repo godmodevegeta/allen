@@ -1,12 +1,35 @@
+import hashlib
 import os
 import re
+import threading
 import time
-from collections import Counter
+from collections import Counter, OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Process-wide coordination for Qloo traffic. The semaphore is the single
+# gatekeeper for live HTTP calls across every facade instance in this process.
+_CACHE_LOCK = threading.Lock()
+_CACHE_MAX_ENTRIES = 256
+_NET_SEMAPHORE = threading.BoundedSemaphore(4)
+_PROBE_LOCK = threading.Lock()
+_SHARED_CACHE: Dict[str, "OrderedDict[str, Any]"] = {}
+_SHARED_CAPABILITIES: Dict[str, Dict[str, bool]] = {}
+_SHARED_PROBED: Dict[str, bool] = {}
+
+
+def _default_capabilities() -> Dict[str, bool]:
+    return {
+        "explainability": False,
+        "urn_demographics": False,
+        "urn_heatmap": False,
+        "urn_tag": False,
+    }
+
 
 # Tags that leak operational metadata instead of cultural vibe. Filtering these
 # keeps the Vibe Lexicon useful for SEO/menu/event prompts.
@@ -57,18 +80,30 @@ class QlooFacade:
         if not self.api_key:
             raise ValueError("Missing QLOO_API_KEY in environment or constructor.")
 
+        self._cache_namespace = self._make_cache_namespace()
         self.client = httpx.Client(
             base_url=self.base_url,
             headers={"X-Api-Key": self.api_key, "Accept": "application/json"},
             timeout=20.0,
+            limits=httpx.Limits(
+                max_keepalive_connections=10,
+                max_connections=10,
+                keepalive_expiry=60.0,
+            ),
         )
-        self._cache: Dict[str, Any] = {}
-        self.capabilities: Dict[str, bool] = {
-            "explainability": False,
-            "urn_demographics": False,
-            "urn_heatmap": False,
-            "urn_tag": False,
-        }
+        with _CACHE_LOCK:
+            self._cache = _SHARED_CACHE.setdefault(
+                self._cache_namespace, OrderedDict()
+            )
+            self.capabilities = _SHARED_CAPABILITIES.setdefault(
+                self._cache_namespace, _default_capabilities()
+            )
+        self._net_semaphore = _NET_SEMAPHORE
+
+    def _make_cache_namespace(self) -> str:
+        """Namespace shared state by endpoint and key without exposing the key."""
+        digest = hashlib.sha256(self.api_key.encode("utf-8")).hexdigest()[:16]
+        return f"{self.base_url}|{digest}"
 
     def close(self) -> None:
         """Release the underlying HTTP connection pool."""
@@ -80,12 +115,17 @@ class QlooFacade:
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         clean_params = {k: v for k, v in (params or {}).items() if v is not None and v != ""}
         cache_key = f"{path}?{ sorted(clean_params.items()) }"
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+
+        # Double-checked cache: hits return before touching the network gate.
+        with _CACHE_LOCK:
+            if cache_key in self._cache:
+                self._cache.move_to_end(cache_key)
+                return self._cache[cache_key]
 
         for attempt in range(3):
             try:
-                resp = self.client.get(path, params=clean_params)
+                with self._net_semaphore:
+                    resp = self.client.get(path, params=clean_params)
             except httpx.HTTPError as exc:
                 # Transport-level failures (timeouts, resets) must never crash a tool.
                 if attempt == 2:
@@ -97,8 +137,16 @@ class QlooFacade:
                 continue
             if resp.status_code >= 400:
                 return {"_error": resp.status_code, "_detail": resp.text[:300], "results": {}}
-            data = resp.json()
-            self._cache[cache_key] = data
+            try:
+                data = resp.json()
+            except ValueError:
+                return {"_error": "invalid_json", "_detail": resp.text[:300], "results": {}}
+
+            with _CACHE_LOCK:
+                self._cache[cache_key] = data
+                self._cache.move_to_end(cache_key)
+                while len(self._cache) > _CACHE_MAX_ENTRIES:
+                    self._cache.popitem(last=False)
             return data
         return {"_error": 429, "results": {}}
 
@@ -210,38 +258,77 @@ class QlooFacade:
     # -------------------------------------------------------------------------
     def probe_optional_features(self, sample_entity_id: str) -> Dict[str, bool]:
         """Tests the 4 disputed endpoints/flags against the live key and records support."""
-        # 1. feature.explainability=true
-        r_exp = self._get("/v2/insights", {
-            "filter.type": "urn:entity:artist",
-            "signal.interests.entities": sample_entity_id,
-            "feature.explainability": "true",
-            "take": 2,
-        })
-        self.capabilities["explainability"] = "_error" not in r_exp
+        namespace = self._cache_namespace
+        with _PROBE_LOCK:
+            with _CACHE_LOCK:
+                if _SHARED_PROBED.get(namespace):
+                    return self.capabilities
 
-        # 2. filter.type=urn:demographics
-        r_demo = self._get("/v2/insights", {
-            "filter.type": "urn:demographics",
-            "signal.interests.entities": sample_entity_id,
-        })
-        self.capabilities["urn_demographics"] = "_error" not in r_demo and bool(r_demo.get("results"))
+            checks = {
+                "explainability": (
+                    "/v2/insights",
+                    {
+                        "filter.type": "urn:entity:artist",
+                        "signal.interests.entities": sample_entity_id,
+                        "feature.explainability": "true",
+                        "take": 2,
+                    },
+                ),
+                "urn_demographics": (
+                    "/v2/insights",
+                    {
+                        "filter.type": "urn:demographics",
+                        "signal.interests.entities": sample_entity_id,
+                    },
+                ),
+                "urn_heatmap": (
+                    "/v2/insights",
+                    {
+                        "filter.type": "urn:heatmap",
+                        "signal.interests.entities": sample_entity_id,
+                        "filter.location.query": "Brooklyn",
+                    },
+                ),
+                "urn_tag": (
+                    "/v2/insights",
+                    {
+                        "filter.type": "urn:tag",
+                        "filter.tag.types": "urn:tag:genre:music",
+                        "signal.interests.entities": sample_entity_id,
+                        "take": 5,
+                    },
+                ),
+            }
 
-        # 3. filter.type=urn:heatmap
-        r_heat = self._get("/v2/insights", {
-            "filter.type": "urn:heatmap",
-            "signal.interests.entities": sample_entity_id,
-            "filter.location.query": "Brooklyn",
-        })
-        self.capabilities["urn_heatmap"] = "_error" not in r_heat and bool(r_heat.get("results"))
+            def run_check(item: Any) -> Any:
+                key, (path, params) = item
+                try:
+                    return key, self._get(path, params)
+                except Exception as exc:
+                    return key, {
+                        "_error": "exception",
+                        "_detail": str(exc)[:300],
+                        "results": {},
+                    }
 
-        # 4. filter.type=urn:tag
-        r_tag = self._get("/v2/insights", {
-            "filter.type": "urn:tag",
-            "filter.tag.types": "urn:tag:genre:music",
-            "signal.interests.entities": sample_entity_id,
-            "take": 5,
-        })
-        self.capabilities["urn_tag"] = "_error" not in r_tag and bool(r_tag.get("results"))
+            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="qloo-probe") as pool:
+                results = list(pool.map(run_check, checks.items()))
+
+            transient = False
+            for key, data in results:
+                error = data.get("_error")
+                if error in (429, "transport", "invalid_json", "exception"):
+                    transient = True
+                if key == "explainability":
+                    self.capabilities[key] = "_error" not in data
+                else:
+                    self.capabilities[key] = "_error" not in data and bool(data.get("results"))
+
+            # A transient failure should not disable optional features for the
+            # whole process lifetime. The next run can retry the probe.
+            if not transient:
+                with _CACHE_LOCK:
+                    _SHARED_PROBED[namespace] = True
         return self.capabilities
 
     # -------------------------------------------------------------------------
@@ -257,43 +344,67 @@ class QlooFacade:
         Resolves restaurant + owner vibe seeds into validated Qloo entity IDs and Tag URNs.
         Automatically probes each seed so weak/unusable signals are filtered out early.
         """
-        resolved_seeds = []
-        harvested_tags = []
+        queries = list(dict.fromkeys([restaurant_name] + list(vibe_seeds or [])))
 
-        for query in [restaurant_name] + vibe_seeds:
-            data = self._get("/search", {"query": query, "take": 3})
-            candidates = self._extract_entities(data)
-            if not candidates:
-                continue
+        def resolve_one(query: str) -> Optional[Dict[str, Any]]:
+            try:
+                data = self._get("/search", {"query": query, "take": 3})
+                candidates = self._extract_entities(data)
+                if not candidates:
+                    return None
 
-            top = candidates[0]
-            eid = top.get("entity_id") or top.get("id")
-            if not eid:
-                continue
+                top = candidates[0]
+                eid = top.get("entity_id") or top.get("id")
+                if not eid:
+                    return None
 
-            # Probe if this entity works as a valid signal in /v2/insights
-            probe = self._get("/v2/insights", {
-                "filter.type": "urn:entity:artist",
-                "signal.interests.entities": eid,
-                "take": 1,
-            })
-            usable = "_error" not in probe and len(self._extract_entities(probe)) > 0
+                # Probe if this entity works as a valid signal in /v2/insights
+                probe = self._get("/v2/insights", {
+                    "filter.type": "urn:entity:artist",
+                    "signal.interests.entities": eid,
+                    "take": 1,
+                })
+                usable = "_error" not in probe and len(self._extract_entities(probe)) > 0
 
-            simp = self._simplify_entity(top)
-            simp["query_term"] = query
-            simp["usable_as_signal"] = usable
-            resolved_seeds.append(simp)
-            harvested_tags.extend(simp["tags"])
+                simp = self._simplify_entity(top)
+                simp["query_term"] = query
+                simp["usable_as_signal"] = usable
+                return simp
+            except Exception:
+                return None
+
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="qloo-seeds") as pool:
+            resolved_seeds = [item for item in pool.map(resolve_one, queries) if item]
+
+        harvested_tags: List[str] = []
+        for seed in resolved_seeds:
+            harvested_tags.extend(seed["tags"])
 
         # Resolve explicit tag queries via /v2/tags
-        resolved_tag_urns = []
-        for tq in tag_queries:
-            tdata = self._get("/v2/tags", {"query": tq, "take": 3})
-            tlist = self._extract_entities(tdata)
-            if tlist:
+        def resolve_tag(tag_query: str) -> Optional[Dict[str, Any]]:
+            try:
+                tdata = self._get("/v2/tags", {"query": tag_query, "take": 3})
+                tlist = self._extract_entities(tdata)
+                if not tlist:
+                    return None
                 turn = tlist[0].get("id") or tlist[0].get("tag_id")
-                if turn:
-                    resolved_tag_urns.append({"query": tq, "tag_urn": turn, "name": tlist[0].get("name")})
+                if not turn:
+                    return None
+                return {
+                    "query": tag_query,
+                    "tag_urn": turn,
+                    "name": tlist[0].get("name"),
+                }
+            except Exception:
+                return None
+
+        if tag_queries:
+            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="qloo-tags") as pool:
+                resolved_tag_urns = [
+                    item for item in pool.map(resolve_tag, tag_queries) if item
+                ]
+        else:
+            resolved_tag_urns = []
 
         valid_signal_ids = [s["entity_id"] for s in resolved_seeds if s["usable_as_signal"]]
 
@@ -322,11 +433,7 @@ class QlooFacade:
         entities_param = ",".join(signal_entity_ids[:8])
         tags_param = ",".join(signal_tag_urns[:5]) if signal_tag_urns else None
 
-        cross_domain: Dict[str, List[Dict[str, Any]]] = {}
-        lexicon_counter: Counter = Counter()
-        lexicon_display: Dict[str, str] = {}
-
-        for dom in domains:
+        def fetch_domain(dom: str) -> Any:
             params: Dict[str, Any] = {
                 "filter.type": f"urn:entity:{dom}",
                 "signal.interests.entities": entities_param,
@@ -335,9 +442,20 @@ class QlooFacade:
             }
             if self.capabilities.get("explainability"):
                 params["feature.explainability"] = "true"
+            try:
+                res = self._get("/v2/insights", params)
+                return dom, [self._simplify_entity(e) for e in self._extract_entities(res)]
+            except Exception:
+                return dom, []
 
-            res = self._get("/v2/insights", params)
-            items = [self._simplify_entity(e) for e in self._extract_entities(res)]
+        with ThreadPoolExecutor(max_workers=5, thread_name_prefix="qloo-dna") as pool:
+            domain_results = list(pool.map(fetch_domain, domains))
+
+        cross_domain: Dict[str, List[Dict[str, Any]]] = {}
+        lexicon_counter: Counter = Counter()
+        lexicon_display: Dict[str, str] = {}
+
+        for dom, items in domain_results:
             cross_domain[dom] = items
 
             for item in items:
@@ -362,31 +480,47 @@ class QlooFacade:
         (Low Risk) + optional standalone urn:demographics enhancement if supported.
         """
         entities_param = ",".join(signal_entity_ids[:5])
-        age_buckets = ["24_and_younger", "25_to_29", "30_to_34", "35_to_44", "45_to_54"]
+        buckets = ["25_to_29", "30_to_34", "35_to_44"]
 
-        # Primary Safe Path: Probe top artist/brand affinity per age bucket via signal.demographics.age
-        persona_slices = []
-        for bucket in ["25_to_29", "30_to_34", "35_to_44"]:
-            res = self._get("/v2/insights", {
-                "filter.type": "urn:entity:brand",
-                "signal.interests.entities": entities_param,
-                "signal.demographics.age": bucket,
-                "take": 4,
-            })
-            top_brands = [self._simplify_entity(e)["name"] for e in self._extract_entities(res)]
-            persona_slices.append({
+        # Primary Safe Path: probe each age bucket concurrently.
+        def fetch_bucket(bucket: str) -> Dict[str, Any]:
+            try:
+                res = self._get("/v2/insights", {
+                    "filter.type": "urn:entity:brand",
+                    "signal.interests.entities": entities_param,
+                    "signal.demographics.age": bucket,
+                    "take": 4,
+                })
+                top_brands = [self._simplify_entity(e)["name"] for e in self._extract_entities(res)]
+            except Exception:
+                top_brands = []
+            return {
                 "age_bucket": bucket,
                 "top_indexing_brands": top_brands,
-            })
+            }
 
         # Optional Enhancement: standalone urn:demographics
-        raw_demographics = None
-        if self.capabilities.get("urn_demographics"):
-            d_res = self._get("/v2/insights", {
-                "filter.type": "urn:demographics",
-                "signal.interests.entities": entities_param,
-            })
-            raw_demographics = d_res.get("results")
+        def fetch_demographics() -> Any:
+            try:
+                d_res = self._get("/v2/insights", {
+                    "filter.type": "urn:demographics",
+                    "signal.interests.entities": entities_param,
+                })
+                return d_res.get("results")
+            except Exception:
+                return None
+
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="qloo-audience") as pool:
+            bucket_futures = [pool.submit(fetch_bucket, bucket) for bucket in buckets]
+            demographics_future = (
+                pool.submit(fetch_demographics)
+                if self.capabilities.get("urn_demographics")
+                else None
+            )
+            persona_slices = [future.result() for future in bucket_futures]
+            raw_demographics = (
+                demographics_future.result() if demographics_future else None
+            )
 
         return {
             "persona_age_slices": persona_slices,

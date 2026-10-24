@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import httpx
 from dotenv import load_dotenv
@@ -94,15 +95,47 @@ _NON_RESTAURANT_CATEGORY_HINTS = (
     "monument",
 )
 
+# Grounded fields are evidence, not generated copy. The cliche scrubber must
+# leave them byte-for-byte intact so the dashboard can always cite Qloo exactly.
+_PROTECTED_SCRUB_KEYS = {
+    "qloo_receipts",
+    "qloo_receipts_cited",
+    "qloo_tags_used",
+    "vibe_lexicon",
+    "vibe_playlist_artists",
+    "original_item",
+    "name",
+    "partner_name",
+    # Intentional generic contrast copy is supposed to sound generic.
+    "before_generic_h1",
+    "generic_llm_spam_version",
+    "initial_generic_draft",
+    "blind_llm_without_qloo",
+}
+
+_BANNED_CLICHE_PATTERNS = (
+    (re.compile(r"\bauthentic\b", re.IGNORECASE), "rooted", False),
+    (re.compile(r"\bcozy\b", re.IGNORECASE), "warm", False),
+    (re.compile(r"\bhidden\s+gems?\b", re.IGNORECASE), "neighborhood find", True),
+    (re.compile(r"\btaste\s+of\s+italy\b", re.IGNORECASE), "Italian flavor", False),
+    (re.compile(r"\bfamily\s+traditions?\b", re.IGNORECASE), "house tradition", True),
+    (re.compile(r"\bbrooklyn\s+vibes?\b", re.IGNORECASE), "Brooklyn energy", False),
+    (re.compile(r"\bexperience\s+the\s+vibes?\b", re.IGNORECASE), "take in the atmosphere", False),
+)
+
 
 class AlfredAgent:
     """
     Minimal Multi-Agent Orchestrator over QlooFacade.
     Executes: Ingest -> Diagnosis -> Grounded Personas -> Focus Group (with Qloo score_candidates)
-    -> 4 Owner.com Execution Pillars -> Gut vs. Graph Control.
+    -> 4 GTM Execution Pillars -> Gut vs. Graph Control.
     """
 
-    def __init__(self, facade: Optional[QlooFacade] = None):
+    def __init__(
+        self,
+        facade: Optional[QlooFacade] = None,
+        model: Optional[str] = None,
+    ):
         self.facade = facade or QlooFacade()
         api_key = (
             os.getenv("LLM_API_KEY")
@@ -110,7 +143,7 @@ class AlfredAgent:
             or os.getenv("OPENROUTER_API_KEY")
         )
         base_url = os.getenv("LLM_BASE_URL")
-        self.model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        self.model = model or os.getenv("LLM_MODEL", "gpt-4o-mini")
 
         if not api_key:
             raise ValueError("Set LLM_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in .env")
@@ -118,7 +151,7 @@ class AlfredAgent:
         # If only an OpenRouter key is present, default to its OpenAI-compatible endpoint.
         if not base_url and os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY"):
             base_url = "https://openrouter.ai/api/v1"
-            if "LLM_MODEL" not in os.environ:
+            if not model and "LLM_MODEL" not in os.environ:
                 self.model = "openai/gpt-4o-mini"
 
         client_kwargs: Dict[str, Any] = {
@@ -231,6 +264,47 @@ class AlfredAgent:
             return [cls._scrub_placeholders(item) for item in obj]
         if isinstance(obj, dict):
             return {key: cls._scrub_placeholders(value) for key, value in obj.items()}
+        return obj
+
+    @staticmethod
+    def _match_replacement_case(source: str, replacement: str) -> str:
+        if source.isupper():
+            return replacement.upper()
+        if source[:1].isupper():
+            return replacement[:1].upper() + replacement[1:]
+        return replacement
+
+    @classmethod
+    def _scrub_banned_text(cls, text: str) -> str:
+        for pattern, replacement, pluralizable in _BANNED_CLICHE_PATTERNS:
+            def substitute(match: "re.Match[str]") -> str:
+                original = match.group(0)
+                value = replacement
+                if pluralizable and original.lower().endswith("s"):
+                    value += "s"
+                return cls._match_replacement_case(original, value)
+
+            text = pattern.sub(substitute, text)
+        return text
+
+    @classmethod
+    def _scrub_banned_cliches(cls, obj: Any) -> Any:
+        """Replace banned cliches without touching grounded evidence or contrast copy."""
+        if isinstance(obj, str):
+            return cls._scrub_banned_text(obj)
+        if isinstance(obj, list):
+            return [cls._scrub_banned_cliches(item) for item in obj]
+        if isinstance(obj, tuple):
+            return tuple(cls._scrub_banned_cliches(item) for item in obj)
+        if isinstance(obj, dict):
+            return {
+                key: (
+                    value
+                    if key in _PROTECTED_SCRUB_KEYS
+                    else cls._scrub_banned_cliches(value)
+                )
+                for key, value in obj.items()
+            }
         return obj
 
     @classmethod
@@ -731,17 +805,6 @@ Rules:
         }
 
     @staticmethod
-    def _copy_for_quality_check(pack: Dict[str, Any]) -> str:
-        """Serializes the pack while excluding fields that are meant to be generic."""
-        clone = json.loads(json.dumps(pack))
-        seo = clone.get("pillar_1_cultural_seo", {}) or {}
-        seo.pop("before_generic_h1", None)
-        campaigns = (clone.get("pillar_3_anti_spam_sms_and_email", {}) or {}).get("campaigns", [])
-        for campaign in campaigns:
-            campaign.pop("generic_llm_spam_version", None)
-        return json.dumps(clone).lower()
-
-    @staticmethod
     def _mentions(text: str, candidate: str) -> bool:
         if not candidate:
             return False
@@ -780,42 +843,57 @@ Rules:
 
         self.facade.probe_optional_features(signal_ids[0])
 
-        dna = self.facade.compute_taste_dna(
-            signal_entity_ids=signal_ids,
-            signal_tag_urns=tag_urns,
-            take=6,
-        )
-        audience = self.facade.get_audience_signals(signal_entity_ids=signal_ids)
-        peers = self.facade.find_affinity_places(
-            signal_entity_ids=signal_ids,
-            lat=profile["lat"],
-            lon=profile["lon"],
-            radius_meters=4000,
-            take=6,
-        )
-        partners = self.facade.scout_local_partners(
-            signal_entity_ids=signal_ids,
-            lat=profile["lat"],
-            lon=profile["lon"],
-            radius_meters=5000,
-            take=15,
-        )
-        heatmap = self.facade.get_local_heatmap(
-            signal_entity_ids=signal_ids,
-            location_query=profile.get("neighborhood_city", "Brooklyn"),
-            take=6,
-        )
+        # Capabilities are known now, so the five Stage 1 reads can run at once.
+        # The facade network gate still caps live Qloo traffic at four requests.
+        with ThreadPoolExecutor(max_workers=5, thread_name_prefix="alfred-stage1") as pool:
+            dna_future = pool.submit(
+                self.facade.compute_taste_dna,
+                signal_entity_ids=signal_ids,
+                signal_tag_urns=tag_urns,
+                take=6,
+            )
+            audience_future = pool.submit(
+                self.facade.get_audience_signals,
+                signal_entity_ids=signal_ids,
+            )
+            peers_future = pool.submit(
+                self.facade.find_affinity_places,
+                signal_entity_ids=signal_ids,
+                lat=profile["lat"],
+                lon=profile["lon"],
+                radius_meters=4000,
+                take=6,
+            )
+            partners_future = pool.submit(
+                self.facade.scout_local_partners,
+                signal_entity_ids=signal_ids,
+                lat=profile["lat"],
+                lon=profile["lon"],
+                radius_meters=5000,
+                take=15,
+            )
+            heatmap_future = pool.submit(
+                self.facade.get_local_heatmap,
+                signal_entity_ids=signal_ids,
+                location_query=profile.get("neighborhood_city", "Brooklyn"),
+                take=6,
+            )
 
-        # Compare taste overlap against top 3 partner candidates
-        partner_comparisons = []
-        for pt in partners[:3]:
+            dna = dna_future.result()
+            audience = audience_future.result()
+            peers = peers_future.result()
+            partners = partners_future.result()
+            heatmap = heatmap_future.result()
+
+        # Compare taste overlap against top 3 partner candidates concurrently.
+        def compare_partner(pt: Dict[str, Any]) -> Dict[str, Any]:
             comp = self.facade.compare_taste_overlap(
                 signal_entity_ids_a=signal_ids,
                 entity_id_b=pt["entity_id"],
                 tags_a=dna["vibe_lexicon"],
                 tags_b=pt.get("tags", []),
             )
-            partner_comparisons.append({
+            return {
                 "partner_name": pt["name"],
                 "partner_id": pt["entity_id"],
                 "partner_tags": pt.get("tags", [])[:5],
@@ -823,7 +901,10 @@ Rules:
                 "partner_affinity": pt.get("affinity"),
                 "comparison_method": comp["method"],
                 "comparison_summary": str(comp.get("data") or comp.get("shared_tags"))[:400],
-            })
+            }
+
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="alfred-partners") as pool:
+            partner_comparisons = list(pool.map(compare_partner, partners[:3]))
 
         return {
             "restaurant_profile": profile,
@@ -848,8 +929,7 @@ Rules:
         partner_ids = [p["entity_id"] for p in partners if p.get("entity_id")]
         artist_ids = [a["entity_id"] for a in artists if a.get("entity_id")]
 
-        persona_math_scores = []
-        for slice_info in diagnosis["audience_signals"]["persona_age_slices"]:
+        def score_persona(slice_info: Dict[str, Any]) -> Dict[str, Any]:
             bucket = slice_info["age_bucket"]
             ranked_partners = self.facade.score_candidates(
                 candidate_entity_ids=partner_ids,
@@ -863,7 +943,7 @@ Rules:
                 entity_type="artist",
                 persona_age_bucket=bucket,
             )
-            persona_math_scores.append({
+            return {
                 "age_bucket": bucket,
                 "top_brands": slice_info["top_indexing_brands"],
                 "qloo_ranked_partners": [
@@ -874,7 +954,11 @@ Rules:
                     {"name": a["name"], "affinity": round(a.get("affinity") or 0, 3)}
                     for a in ranked_artists[:3]
                 ],
-            })
+            }
+
+        slices = diagnosis["audience_signals"]["persona_age_slices"]
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="alfred-personas") as pool:
+            persona_math_scores = list(pool.map(score_persona, slices))
         return persona_math_scores
 
     # -------------------------------------------------------------------------
@@ -1016,7 +1100,7 @@ Return JSON: {"ready_to_send_founder_dm": "...", "outreach_email": "..."}
             b2b["outreach_email"] = self._strip_placeholders(email)
 
     # -------------------------------------------------------------------------
-    # STAGE 4: The 4 Owner.com-Style Execution Pillars
+    # STAGE 4: The 4 GTM Execution Pillars
     # -------------------------------------------------------------------------
     def generate_execution_pack(
         self,
@@ -1024,7 +1108,7 @@ Return JSON: {"ready_to_send_founder_dm": "...", "outreach_email": "..."}
         focus_group: Dict[str, Any],
     ) -> Dict[str, Any]:
         system_prompt = """
-You are Alfred, the Autonomous Cultural CMO for independent restaurants (sitting one layer above Owner.com).
+You are Alfred, the Autonomous Cultural CMO for independent restaurants.
 Using ONLY the verified Qloo entities, vibe lexicon tags, local Brooklyn peers/partners, and Focus Group winners provided, generate the ready-to-deploy GTM Execution Pack.
 
 Every recommendation MUST cite real Qloo entities from the payload. Never invent fake entities.
@@ -1142,43 +1226,26 @@ Return a JSON object with this exact schema:
         }
         pack = self._ask_json(system_prompt, payload)
 
-        p2 = pack.get("pillar_2_menu_and_aov_engineering", {}) or {}
-        p3 = pack.get("pillar_3_anti_spam_sms_and_email", {}) or {}
-        seo = pack.get("pillar_1_cultural_seo", {}) or {}
-        complete = (
-            len(p2.get("menu_reframes", [])) >= 3
-            and len(p2.get("direct_ordering_upsell_bundles", [])) >= 3
-            and len(p3.get("campaigns", [])) >= 3
-            and len(seo.get("ai_search_occasion_prompts", [])) >= 3
-        )
-        banned = (
-            "authentic",
-            "cozy",
-            "hidden gem",
-            "taste of italy",
-            "family tradition",
-            "brooklyn vibe",
-            "experience the vibe",
-        )
-        violations = [term for term in banned if term in self._copy_for_quality_check(pack)]
-        if not complete or violations:
-            print(
-                f"   Repairing pack (missing_items={not complete}, banned_terms={violations})"
+        def is_structurally_complete(candidate: Dict[str, Any]) -> bool:
+            cand_p2 = candidate.get("pillar_2_menu_and_aov_engineering", {}) or {}
+            cand_p3 = candidate.get("pillar_3_anti_spam_sms_and_email", {}) or {}
+            cand_seo = candidate.get("pillar_1_cultural_seo", {}) or {}
+            return (
+                len(cand_p2.get("menu_reframes", [])) >= 3
+                and len(cand_p2.get("direct_ordering_upsell_bundles", [])) >= 3
+                and len(cand_p3.get("campaigns", [])) >= 3
+                and len(cand_seo.get("ai_search_occasion_prompts", [])) >= 3
             )
-            feedback = []
-            if not complete:
-                feedback.append(
-                    "Return exactly 3 menu_reframes, 3 direct_ordering_upsell_bundles, "
-                    "3 SMS campaigns (weeks 1-3), and 3 ai_search_occasion_prompts."
-                )
-            if violations:
-                feedback.append(
-                    "Remove these banned phrases entirely: " + ", ".join(violations) + "."
-                )
+
+        # Only structural gaps justify another full LLM call. Cliches are fixed
+        # deterministically below, which is faster and protects grounded fields.
+        if not is_structurally_complete(pack):
+            print("   Repairing incomplete execution pack...")
             repair_note = (
-                "\n\nCRITICAL RETRY: The previous response did not meet the hard requirements. "
-                + " ".join(feedback)
-                + " Keep the same JSON schema."
+                "\n\nCRITICAL RETRY: The previous response did not meet the structural requirements. "
+                "Return exactly 3 menu_reframes, 3 direct_ordering_upsell_bundles, "
+                "3 SMS campaigns (weeks 1-3), and 3 ai_search_occasion_prompts. "
+                "Keep the same JSON schema."
             )
             pack = self._ask_json(system_prompt + repair_note, payload)
 
@@ -1203,7 +1270,7 @@ Return a JSON object with this exact schema:
             if str(t).lower() in lexicon_lookup
         ]
         self._repair_outreach_copy(pack, diagnosis)
-        return pack
+        return self._scrub_banned_cliches(pack)
 
     # -------------------------------------------------------------------------
     # STAGE 5: Gut vs. Graph Control
@@ -1288,11 +1355,17 @@ Return a JSON object with this exact schema:
         print("3. Running Qloo-Grounded Multi-Agent Focus Group...")
         focus_group = self.run_focus_group(diagnosis, personas)
 
-        print("4. Compiling 4-Pillar Owner.com Execution Pack...")
-        execution_pack = self.generate_execution_pack(diagnosis, focus_group)
-
-        print("5. Generating Gut vs. Graph Control...")
-        gut_vs_graph = self.generate_gut_vs_graph_control(diagnosis, focus_group)
+        print("4. Compiling the 4-Pillar GTM Execution Pack...")
+        print("5. Generating Gut vs. Graph Control in parallel...")
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="alfred-final") as pool:
+            execution_future = pool.submit(
+                self.generate_execution_pack, diagnosis, focus_group
+            )
+            gut_future = pool.submit(
+                self.generate_gut_vs_graph_control, diagnosis, focus_group
+            )
+            execution_pack = execution_future.result()
+            gut_vs_graph = gut_future.result()
 
         return {
             "diagnosis": diagnosis,

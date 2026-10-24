@@ -661,7 +661,7 @@
         <li><button class="step" data-stage="1" data-tab="xray" data-state="pending" type="button" aria-label="Stage 1, Cultural X-Ray"><span class="step-index">01</span><span class="min-w-0"><span class="step-label">Cultural X-Ray</span><span class="step-state">Waiting</span></span></button></li>
         <li><button class="step" data-stage="2" data-tab="focus" data-state="pending" type="button" aria-label="Stage 2, Persona Math"><span class="step-index">02</span><span class="min-w-0"><span class="step-label">Persona Math</span><span class="step-state">Waiting</span></span></button></li>
         <li><button class="step" data-stage="3" data-tab="focus" data-state="pending" type="button" aria-label="Stage 3, Synthetic Focus Group"><span class="step-index">03</span><span class="min-w-0"><span class="step-label">Focus Group</span><span class="step-state">Waiting</span></span></button></li>
-        <li><button class="step" data-stage="4" data-tab="execution" data-state="pending" type="button" aria-label="Stage 4, Owner.com Execution Pack"><span class="step-index">04</span><span class="min-w-0"><span class="step-label">Execution Pack</span><span class="step-state">Waiting</span></span></button></li>
+        <li><button class="step" data-stage="4" data-tab="execution" data-state="pending" type="button" aria-label="Stage 4, GTM Execution Pack"><span class="step-index">04</span><span class="min-w-0"><span class="step-label">Execution Pack</span><span class="step-state">Waiting</span></span></button></li>
         <li><button class="step" data-stage="5" data-tab="gut" data-state="pending" type="button" aria-label="Stage 5, Gut vs Graph"><span class="step-index">05</span><span class="min-w-0"><span class="step-label">Gut vs Graph</span><span class="step-state">Waiting</span></span></button></li>
       </ol>
     </div>
@@ -882,7 +882,7 @@
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="kicker">Stage 04</p>
-          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">Owner.com Execution Hub</h2>
+          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">GTM Execution Hub</h2>
           <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Four execution pillars, grounded in verified Qloo signals and ready for the operator.</p>
         </div>
         <div class="flex flex-wrap gap-1.5">
@@ -1021,6 +1021,8 @@
         running: false,
         isLive: false,
         activeStage: 0,
+        doneStages: new Set(),
+        liveModel: '',
         activeTab: 'xray',
         currentStream: null,
         streamFinished: true,
@@ -1153,8 +1155,10 @@
           const response = await fetch('/api/health', { cache: 'no-store' });
           if (!response.ok) return;
           const health = await response.json();
-          if (health.model) {
-            $('#footer-model').textContent = `Live model: ${health.model}`;
+          const model = health.live_model || health.model;
+          if (model) {
+            state.liveModel = model;
+            $('#footer-model').textContent = `Live model: ${model}`;
           }
           if (!health.preset_available) {
             showBanner(
@@ -1341,8 +1345,14 @@
         state.running = false;
         setRunningUI(false);
         stopTimer();
-        const stage = Math.max(1, state.activeStage || 1);
+        let stage = Math.max(1, state.activeStage || 1);
+        if (stage >= 4 && state.doneStages.has(stage)) {
+          const sibling = stage === 4 ? 5 : 4;
+          if (!state.doneStages.has(sibling)) stage = sibling;
+        }
         setStep(stage, 'stopped', 'Stopped');
+        if (stage === 4 && !state.doneStages.has(5)) setStep(5, 'stopped', 'Stopped');
+        if (stage === 5 && !state.doneStages.has(4)) setStep(4, 'stopped', 'Stopped');
         setStatus('Stopped watching live run', 'warning');
         showBanner(
           'Stopped watching. The server will stop the run after the current stage, then release the live lock.',
@@ -1438,7 +1448,9 @@
         state.activeStage = 6;
         state.isLive = true;
         if (state.data && state.data.diagnosis) renderHeader(state.data);
-        $('#footer-model').textContent = 'Live Qloo run';
+        $('#footer-model').textContent = state.liveModel
+          ? `Live model: ${state.liveModel}`
+          : 'Live Qloo run';
         showToast('Live Qloo run complete');
         state.retryAction = () => startLive(state.lastRequest || {});
       }
@@ -1454,6 +1466,8 @@
           setStep(1, 'error', 'Blocked');
         } else {
           setStep(stage, 'error', 'Failed');
+          if (stage === 4 && !state.doneStages.has(5)) setStep(5, 'stopped', 'Stopped');
+          if (stage === 5 && !state.doneStages.has(4)) setStep(4, 'stopped', 'Stopped');
         }
         setStatus('Live run failed', 'error');
         showBanner(
@@ -1551,6 +1565,7 @@
       }
 
       function resetSteps() {
+        state.doneStages.clear();
         $$('.step').forEach((step) => {
           step.dataset.state = 'pending';
           const stateText = $('.step-state', step);
@@ -1567,12 +1582,16 @@
       }
 
       function setStepperStage(activeStage) {
+        const stage = Number(activeStage);
+        const parallelFinal = stage >= 4;
         $$('.step').forEach((step) => {
           const stageNumber = Number(step.dataset.stage);
-          if (stageNumber < activeStage) {
+          if (state.doneStages.has(stageNumber)) {
             setStep(stageNumber, 'done', 'Done');
-          } else if (stageNumber === activeStage) {
+          } else if (stageNumber === stage || (parallelFinal && stageNumber >= 4)) {
             setStep(stageNumber, 'active', 'Running');
+          } else if (stageNumber < stage) {
+            setStep(stageNumber, 'done', 'Done');
           } else {
             setStep(stageNumber, 'pending', 'Waiting');
           }
@@ -1580,12 +1599,15 @@
       }
 
       function markStageDone(stageNumber) {
+        state.doneStages.add(Number(stageNumber));
         setStep(stageNumber, 'done', 'Done');
       }
 
       function setAllStepsDone(label = 'Done') {
         $$('.step').forEach((step) => {
-          setStep(Number(step.dataset.stage), 'done', label);
+          const stageNumber = Number(step.dataset.stage);
+          state.doneStages.add(stageNumber);
+          setStep(stageNumber, 'done', label);
         });
         state.activeStage = 6;
       }

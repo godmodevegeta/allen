@@ -15,6 +15,7 @@ import queue
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -54,6 +55,16 @@ def _llm_configured() -> bool:
         or os.getenv("OPENAI_API_KEY")
         or os.getenv("OPENROUTER_API_KEY")
     )
+
+
+def _live_model() -> str:
+    """Resolve the dashboard model without changing offline preset runs."""
+    explicit = os.getenv("LIVE_LLM_MODEL") or os.getenv("LLM_MODEL")
+    if explicit:
+        return explicit
+    if os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+        return "openai/gpt-4o-mini"
+    return "gpt-4o-mini"
 
 
 def _preset_source() -> str:
@@ -143,7 +154,7 @@ def _run_pipeline(
             return
 
         lock_acquired = True
-        agent = AlfredAgent()
+        agent = AlfredAgent(model=_live_model())
 
         if custom:
             stage = 0
@@ -231,27 +242,47 @@ def _run_pipeline(
                 "run_id": run_id,
             },
         )
-        execution_pack = _FINALIZE_STAGE(
-            agent.generate_execution_pack(diagnosis, focus_group)
-        )
-        emit("execution_pack", execution_pack)
-        if cancelled():
-            return
-
-        stage = 5
         emit(
             "status",
             {
                 "stage": 5,
                 "label": "Gut vs Graph",
-                "message": "Generating the blind versus Qloo-grounded control.",
+                "message": "Generating the blind versus Qloo-grounded control in parallel.",
                 "run_id": run_id,
             },
         )
-        gut_vs_graph = _FINALIZE_STAGE(
-            agent.generate_gut_vs_graph_control(diagnosis, focus_group)
-        )
-        emit("gut_vs_graph", gut_vs_graph)
+
+        cancel_requested = False
+        errors: List[tuple[int, Exception]] = []
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="alfred-final") as pool:
+            futures = {
+                pool.submit(agent.generate_execution_pack, diagnosis, focus_group): (
+                    "execution_pack",
+                    4,
+                ),
+                pool.submit(
+                    agent.generate_gut_vs_graph_control, diagnosis, focus_group
+                ): ("gut_vs_graph", 5),
+            }
+            for future in as_completed(futures):
+                event_name, result_stage = futures[future]
+                try:
+                    result = _FINALIZE_STAGE(future.result())
+                except Exception as exc:
+                    errors.append((result_stage, exc))
+                    continue
+                if not cancel_requested:
+                    emit(event_name, result)
+                if cancelled():
+                    cancel_requested = True
+
+        if cancel_requested:
+            return
+        if errors:
+            errors.sort(key=lambda item: item[0])
+            stage = errors[0][0]
+            raise errors[0][1]
+
         emit(
             "done",
             {
@@ -311,6 +342,7 @@ async def health() -> Dict[str, Any]:
         "llm_configured": _llm_configured(),
         "live_busy": LIVE_LOCK.locked(),
         "model": os.getenv("LLM_MODEL", ""),
+        "live_model": _live_model(),
     }
 
 

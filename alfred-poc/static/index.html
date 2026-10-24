@@ -1,0 +1,3187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alfred | Cultural CMO for Independent Restaurants</title>
+  <meta name="description" content="Alfred turns Qloo's cultural taste graph into a five-stage GTM plan for independent restaurants.">
+  <meta name="theme-color" content="#07070b">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23e8b45a'/><text x='32' y='45' font-family='Georgia' font-size='38' text-anchor='middle' fill='%23171005'>A</text></svg>">
+  <script>
+    window.__alfredPresetConsumed = false;
+    window.__alfredPresetPromise = fetch("/api/preset/bonafini", { cache: "default" })
+      .then(async (response) => ({ ok: response.ok, status: response.status, data: response.ok ? await response.json() : null }))
+      .catch(() => null);
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: { 950: '#07070b', 900: '#0b0b11', 800: '#111119', 700: '#181822', 600: '#22222f' },
+            gold: { 200: '#f8e2a8', 300: '#f2d486', 400: '#e8b45a', 500: '#d99a35', 600: '#b87a1f' },
+            mint: { 300: '#8ee7c1', 400: '#54d6a0', 500: '#2fb783' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            display: ['Fraunces', 'Georgia', 'serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --gold: #e8b45a;
+      --gold-soft: rgba(232, 180, 90, 0.14);
+      --mint: #54d6a0;
+      --mint-soft: rgba(84, 214, 160, 0.12);
+      --rose: #f07a8a;
+      --rose-soft: rgba(240, 122, 138, 0.1);
+      --sky: #79b8ff;
+      --ink: #07070b;
+      --line: rgba(255, 255, 255, 0.08);
+      --muted: #8d8da1;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 700px at 8% -12%, rgba(232, 180, 90, 0.13), transparent 60%),
+        radial-gradient(950px 620px at 92% 4%, rgba(84, 214, 160, 0.08), transparent 58%),
+        radial-gradient(700px 500px at 50% 110%, rgba(121, 184, 255, 0.06), transparent 60%),
+        var(--ink);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      opacity: 0.35;
+      background-image: linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black, transparent 82%);
+    }
+    ::selection { background: rgba(232, 180, 90, 0.28); color: #fff; }
+    .hidden { display: none !important; }
+    .brand-copy { display: none; }
+    @media (min-width: 640px) { .brand-copy { display: block; } }
+    .font-display { font-family: 'Fraunces', Georgia, serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      line-height: 1.2;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #9b9bae;
+    }
+    .label {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9b9bae;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      box-shadow: 0 30px 90px -55px rgba(0,0,0,0.95);
+    }
+    .mini-panel {
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 0.9rem;
+      background: rgba(255,255,255,0.025);
+      padding: 0.85rem 0.95rem;
+    }
+    .divider { border-color: rgba(255,255,255,0.07); }
+    .muted { color: var(--muted); }
+    .gold-text { color: var(--gold); }
+    .mint-text { color: var(--mint); }
+    .rose-text { color: var(--rose); }
+    .sky-text { color: var(--sky); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0.22rem 0.6rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9.5px;
+      line-height: 1.2;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-gold { color: #f5d993; background: rgba(232,180,90,0.1); border-color: rgba(232,180,90,0.25); }
+    .badge-mint { color: #9bf0cc; background: rgba(84,214,160,0.1); border-color: rgba(84,214,160,0.24); }
+    .badge-rose { color: #ffb3bd; background: rgba(240,122,138,0.1); border-color: rgba(240,122,138,0.24); }
+    .badge-sky { color: #b9d8ff; background: rgba(121,184,255,0.1); border-color: rgba(121,184,255,0.22); }
+    .badge-neutral { color: #c2c2d0; background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      border-radius: 0.7rem;
+      border: 1px solid transparent;
+      padding: 0.62rem 0.82rem;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(180deg, #f1c76c, #d99a35); color: #1a1307; box-shadow: 0 10px 30px -16px rgba(232,180,90,0.8); }
+    .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #f7d486, #e3a842); }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e9e9f1; border-color: rgba(255,255,255,0.12); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+    .btn-ghost { background: transparent; color: #c8c8d6; border-color: rgba(255,255,255,0.1); }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: #fff; }
+    .btn-danger { background: rgba(240,122,138,0.14); color: #ffb3bd; border-color: rgba(240,122,138,0.26); }
+    .btn-sm { padding: 0.36rem 0.55rem; font-size: 10px; border-radius: 0.55rem; }
+    .btn:focus-visible, .tab-button:focus-visible, .step:focus-visible, .copy-btn:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid rgba(232,180,90,0.75);
+      outline-offset: 2px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      padding: 0.38rem 0.65rem;
+      color: #b9b9c7;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      max-width: min(70vw, 520px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #live-status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status-dot { width: 6px; height: 6px; border-radius: 999px; background: #8d8da1; flex: none; }
+    .status-pill[data-kind="loading"] .status-dot { background: var(--gold); animation: pulse 1.4s infinite; }
+    .status-pill[data-kind="running"] .status-dot { background: var(--mint); animation: pulse 1.2s infinite; }
+    .status-pill[data-kind="ready"] .status-dot { background: var(--mint); }
+    .status-pill[data-kind="warning"] .status-dot { background: var(--gold); }
+    .status-pill[data-kind="error"] .status-dot { background: var(--rose); }
+    .status-pill[data-kind="error"] { color: #ffb3bd; border-color: rgba(240,122,138,0.26); background: rgba(240,122,138,0.08); }
+
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.3rem;
+      height: 2.3rem;
+      border-radius: 0.7rem;
+      background: linear-gradient(145deg, #f4d285, #c88722);
+      color: #171005;
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 12px 30px -16px rgba(232,180,90,0.9);
+    }
+
+    .step {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: 100%;
+      border-radius: 0.75rem;
+      border: 1px solid transparent;
+      padding: 0.5rem 0.55rem;
+      text-align: left;
+      transition: background .15s ease, border-color .15s ease;
+      cursor: pointer;
+    }
+    .step:hover { background: rgba(255,255,255,0.035); }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -0.32rem;
+      top: 50%;
+      width: 0.3rem;
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+    }
+    .step-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.03);
+      color: #b5b5c4;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9px;
+      flex: none;
+    }
+    .step-label { display: block; font-size: 10.5px; font-weight: 600; color: #d8d8e2; line-height: 1.2; }
+    .step-state { display: block; margin-top: 1px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #717184; }
+    .step[data-state="active"] { background: rgba(232,180,90,0.09); border-color: rgba(232,180,90,0.24); }
+    .step[data-state="active"] .step-index { background: var(--gold); border-color: var(--gold); color: #1a1307; }
+    .step[data-state="active"] .step-label { color: #f6dfaa; }
+    .step[data-state="active"] .step-state { color: #e8b45a; }
+    .step[data-state="done"] .step-index { background: rgba(84,214,160,0.14); border-color: rgba(84,214,160,0.4); color: #8ee7c1; }
+    .step[data-state="done"] .step-state { color: #71cda8; }
+    .step[data-state="error"] { background: rgba(240,122,138,0.08); border-color: rgba(240,122,138,0.22); }
+    .step[data-state="error"] .step-index { background: rgba(240,122,138,0.18); border-color: rgba(240,122,138,0.4); color: #ffb3bd; }
+    .step[data-state="error"] .step-state { color: #f07a8a; }
+    .step[data-state="stopped"] { background: rgba(232,180,90,0.07); border-color: rgba(232,180,90,0.2); }
+    .step[data-state="stopped"] .step-state { color: #e8b45a; }
+
+    .tab-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border-radius: 0.65rem;
+      padding: 0.58rem 0.8rem;
+      color: #9e9eb0;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background .15s ease, color .15s ease;
+      position: relative;
+      cursor: pointer;
+    }
+    .tab-button:hover { color: #fff; background: rgba(255,255,255,0.045); }
+    .tab-button[aria-selected="true"] { color: #f8e2a8; background: rgba(232,180,90,0.1); box-shadow: inset 0 0 0 1px rgba(232,180,90,0.2); }
+    .tab-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--mint); box-shadow: 0 0 0 3px rgba(84,214,160,0.12); }
+    .tab-panel { animation: panelIn .32s ease both; }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.32rem;
+      border-radius: 0.45rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      padding: 0.28rem 0.45rem;
+      color: #b9b9c7;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: 0.03em;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+      cursor: pointer;
+      flex: none;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .copy-btn.copied { color: #8ee7c1; border-color: rgba(84,214,160,0.3); background: rgba(84,214,160,0.1); }
+
+    .prose-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .code-block {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.7rem;
+      background: rgba(0,0,0,0.24);
+      padding: 0.8rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10.5px;
+      line-height: 1.65;
+      color: #d7d7e2;
+    }
+    .compare-box { border-radius: 0.75rem; border: 1px solid transparent; padding: 0.85rem; }
+    .compare-box.rose { border-color: rgba(240,122,138,0.18); background: rgba(240,122,138,0.055); }
+    .compare-box.mint { border-color: rgba(84,214,160,0.18); background: rgba(84,214,160,0.055); }
+    .compare-box.gold { border-color: rgba(232,180,90,0.18); background: rgba(232,180,90,0.055); }
+    .compare-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    .compare-box.rose .compare-label { color: #ffb3bd; }
+    .compare-box.mint .compare-label { color: #9bf0cc; }
+    .compare-box.gold .compare-label { color: #f5d993; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.035);
+      padding: 0.24rem 0.55rem;
+      font-size: 10px;
+      line-height: 1.2;
+      color: #c9c9d6;
+    }
+    .chip-gold { color: #f5d993; border-color: rgba(232,180,90,0.2); background: rgba(232,180,90,0.07); }
+    .chip-mint { color: #9bf0cc; border-color: rgba(84,214,160,0.2); background: rgba(84,214,160,0.07); }
+    .chip-rose { color: #ffb3bd; border-color: rgba(240,122,138,0.2); background: rgba(240,122,138,0.07); }
+    .chip-sky { color: #b9d8ff; border-color: rgba(121,184,255,0.2); background: rgba(121,184,255,0.07); }
+
+    .seed-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.035);
+      padding: 0.3rem 0.55rem;
+      font-size: 10px;
+      color: #d6d6e1;
+      line-height: 1.2;
+    }
+    .seed-chip .seed-dot { width: 5px; height: 5px; border-radius: 999px; background: #8d8da1; flex: none; }
+    .seed-chip.is-verified { border-color: rgba(84,214,160,0.2); background: rgba(84,214,160,0.07); color: #c9f7e4; }
+    .seed-chip.is-verified .seed-dot { background: var(--mint); }
+    .seed-chip.is-unverified { border-color: rgba(232,180,90,0.18); background: rgba(232,180,90,0.06); color: #f5d993; }
+    .seed-chip.is-unverified .seed-dot { background: var(--gold); }
+    .seed-status { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; }
+
+    .affinity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-radius: 999px;
+      background: rgba(84,214,160,0.1);
+      border: 1px solid rgba(84,214,160,0.2);
+      padding: 0.2rem 0.5rem;
+      color: #9bf0cc;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+    .affinity-track { height: 3px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .affinity-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, rgba(84,214,160,0.55), #54d6a0); }
+    .affinity-fill.gold { background: linear-gradient(90deg, rgba(232,180,90,0.55), #e8b45a); }
+
+    .rank-row { border-top: 1px solid rgba(255,255,255,0.055); padding-top: 0.6rem; margin-top: 0.6rem; }
+    .rank-row:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+    .tag-pill {
+      display: inline-flex;
+      border-radius: 0.35rem;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 0.18rem 0.4rem;
+      color: #aaaabc;
+      font-size: 9px;
+      line-height: 1.2;
+    }
+
+    .map { width: 100%; height: 500px; background: #0a0a10; }
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.6rem;
+      background: rgba(7,7,11,0.72);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .map-legend {
+      position: absolute;
+      left: 0.85rem;
+      bottom: 0.85rem;
+      z-index: 500;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(7,7,11,0.82);
+      backdrop-filter: blur(8px);
+      padding: 0.55rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      max-width: calc(100% - 1.7rem);
+    }
+    .legend-row { display: flex; align-items: center; gap: 0.4rem; font-size: 9px; color: #c7c7d5; }
+    .legend-dot { width: 6px; height: 6px; border-radius: 999px; flex: none; }
+    .leaflet-container { background: #0a0a10; font-family: 'Inter', sans-serif; }
+    .leaflet-control-attribution { background: rgba(7,7,11,0.78) !important; color: #77778a !important; font-size: 8px !important; }
+    .leaflet-control-attribution a { color: #a3a3b5 !important; }
+    .leaflet-bar { border: 1px solid rgba(255,255,255,0.1) !important; box-shadow: none !important; }
+    .leaflet-bar a { background: rgba(11,11,17,0.92) !important; color: #d6d6e1 !important; border-bottom-color: rgba(255,255,255,0.08) !important; }
+    .leaflet-bar a:hover { background: rgba(30,30,42,0.95) !important; }
+    .leaflet-control-layers {
+      background: rgba(11,11,17,0.92) !important;
+      color: #d6d6e1 !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      border-radius: 0.55rem !important;
+      box-shadow: none !important;
+      font-size: 10px !important;
+    }
+    .leaflet-control-layers label { color: #d6d6e1 !important; }
+    .leaflet-control-layers-separator { border-top-color: rgba(255,255,255,0.08) !important; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: #12121a !important;
+      color: #e9e9f1 !important;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 60px -25px rgba(0,0,0,0.9) !important;
+    }
+    .leaflet-popup-content { margin: 0.7rem 0.8rem !important; }
+    .map-popup h4 { font-family: 'Fraunces', Georgia, serif; font-size: 14px; margin-top: 0.2rem; color: #fff; }
+    .map-popup p { font-size: 10px; line-height: 1.45; color: #b9b9c7; margin-top: 0.25rem; }
+    .alfred-marker-wrap { background: transparent; border: 0; }
+    .alfred-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,180,90,0.7);
+      background: rgba(232,180,90,0.16);
+      box-shadow: 0 0 0 5px rgba(232,180,90,0.1), 0 0 24px rgba(232,180,90,0.5);
+    }
+    .alfred-marker-core { width: 9px; height: 9px; border-radius: 999px; background: #e8b45a; }
+
+    .skeleton { position: relative; overflow: hidden; background: rgba(255,255,255,0.045); border-radius: 0.45rem; }
+    .skeleton::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      animation: shimmer 1.6s infinite;
+    }
+    .waiting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 150px;
+      text-align: center;
+      color: #9b9bae;
+      padding: 1.5rem;
+    }
+    .waiting-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--gold); animation: pulse 1.4s infinite; }
+
+    .banner {
+      border-radius: 0.85rem;
+      border: 1px solid rgba(232,180,90,0.24);
+      background: rgba(232,180,90,0.08);
+      padding: 0.8rem 0.95rem;
+      color: #f5d993;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .banner[data-kind="error"] { border-color: rgba(240,122,138,0.26); background: rgba(240,122,138,0.08); color: #ffb3bd; }
+    .banner[data-kind="warning"] { border-color: rgba(232,180,90,0.24); background: rgba(232,180,90,0.08); color: #f5d993; }
+    .banner[data-kind="info"] { border-color: rgba(121,184,255,0.24); background: rgba(121,184,255,0.08); color: #b9d8ff; }
+    .banner[data-kind="success"] { border-color: rgba(84,214,160,0.24); background: rgba(84,214,160,0.08); color: #9bf0cc; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(3,3,6,0.78);
+      backdrop-filter: blur(10px);
+    }
+    .modal-panel {
+      width: min(620px, 100%);
+      max-height: min(90vh, 760px);
+      overflow-y: auto;
+      border-radius: 1.1rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, #15151e, #0c0c12);
+      box-shadow: 0 40px 120px -30px rgba(0,0,0,0.95);
+      padding: 1.2rem;
+      animation: modalIn .2s ease both;
+    }
+    .field {
+      width: 100%;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.035);
+      padding: 0.62rem 0.72rem;
+      color: #eeeeF5;
+      font-size: 12px;
+      line-height: 1.5;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .field::placeholder { color: #66667a; }
+    .field:focus { border-color: rgba(232,180,90,0.5); background: rgba(255,255,255,0.05); outline: none; }
+    textarea.field { resize: vertical; min-height: 84px; }
+
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 3000;
+      border-radius: 0.7rem;
+      border: 1px solid rgba(84,214,160,0.25);
+      background: rgba(10,16,14,0.94);
+      color: #b9f5dc;
+      padding: 0.7rem 0.9rem;
+      font-size: 12px;
+      box-shadow: 0 24px 60px -20px rgba(0,0,0,0.9);
+      animation: toastIn .2s ease both;
+      max-width: min(90vw, 360px);
+    }
+    .toast[data-kind="error"] { border-color: rgba(240,122,138,0.3); background: rgba(20,10,14,0.95); color: #ffb3bd; }
+
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: -100px;
+      z-index: 4000;
+      border-radius: 0.5rem;
+      background: #e8b45a;
+      color: #171005;
+      padding: 0.5rem 0.75rem;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .skip-link:focus { top: 1rem; }
+
+    .section-rule { height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent); }
+    .glow-line { background: linear-gradient(90deg, transparent, rgba(232,180,90,0.5), transparent); height: 1px; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 640px) {
+      .map { height: 390px; }
+      .step { padding: 0.45rem 0.3rem; gap: 0.3rem; }
+      .step:not(:last-child)::after { display: none; }
+      .step-label { font-size: 9px; }
+      .step-state { display: none; }
+      .step-index { width: 1.45rem; height: 1.45rem; font-size: 8px; }
+      .status-pill { max-width: 62vw; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body class="bg-ink-950 text-slate-100 font-sans antialiased">
+  <a class="skip-link" href="#main">Skip to dashboard</a>
+  <header class="relative z-30 border-b border-white/10 bg-ink-950/80 backdrop-blur-xl">
+    <div class="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+      <div class="flex h-16 items-center justify-between gap-3">
+        <a href="/" class="flex items-center gap-3" aria-label="Alfred home">
+          <span class="logo-mark" aria-hidden="true">A</span>
+          <span class="brand-copy">
+            <span class="block text-[11px] font-semibold tracking-[0.3em] text-gold-300">ALFRED</span>
+            <span class="block text-[9px] tracking-[0.22em] text-slate-500">CULTURAL CMO</span>
+          </span>
+        </a>
+        <div class="flex items-center gap-2">
+          <span id="live-status" class="status-pill" data-kind="loading" role="status" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="live-status-text">Loading verified snapshot</span>
+          </span>
+          <span id="live-timer" class="hidden font-mono text-[10px] text-slate-400">0.0s</span>
+          <button id="stop-live-btn" class="btn btn-danger btn-sm hidden" type="button">Stop live run</button>
+        </div>
+      </div>
+
+      <div class="pb-5 pt-1">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="profile-badge" class="badge badge-gold">Verified snapshot</span>
+              <span id="location-badge" class="badge badge-mint hidden"></span>
+              <span id="snapshot-meta" class="text-[10.5px] text-slate-500"></span>
+            </div>
+            <h1 id="restaurant-name" class="mt-2 font-display text-4xl font-medium tracking-[-0.02em] text-white sm:text-5xl lg:text-[3.35rem]">Alfred</h1>
+            <p id="restaurant-address" class="mt-1 text-sm text-slate-400">Preparing the verified Bonafini snapshot.</p>
+            <p id="restaurant-goal" class="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Turning Qloo's cultural graph into a room-level plan for independent restaurants.</p>
+            <div id="restaurant-meta" class="mt-3 flex flex-wrap items-center gap-1.5"></div>
+          </div>
+          <div class="flex flex-wrap items-start gap-2 lg:max-w-[440px] lg:justify-end">
+            <button id="load-preset-btn" class="btn btn-secondary" type="button" title="Load the committed Bonafini snapshot">
+              <span class="h-1.5 w-1.5 rounded-full bg-mint-400" aria-hidden="true"></span>
+              Load Verified Bonafini
+            </button>
+            <button id="run-live-btn" class="btn btn-primary" type="button" title="Run the full five-stage Qloo and LLM pipeline">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+              Re-Run Live Qloo Agent
+            </button>
+            <button id="custom-btn" class="btn btn-ghost" type="button" title="Bootstrap a different restaurant">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg>
+              Try Custom Restaurant
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+          <div class="mini-panel">
+            <div class="flex items-center justify-between gap-3">
+              <span class="label">Menu highlights</span>
+              <span id="menu-count" class="mono text-[9px] text-slate-500"></span>
+            </div>
+            <div id="menu-highlights" class="mt-2 flex flex-wrap gap-1.5">
+              <span class="chip">Loading menu...</span>
+            </div>
+          </div>
+          <div class="mini-panel">
+            <div class="flex items-center justify-between gap-3">
+              <span class="label">Qloo vibe seeds</span>
+              <span id="seed-count" class="mono text-[9px] text-slate-500"></span>
+            </div>
+            <div id="seed-chips" class="mt-2 flex flex-wrap gap-1.5">
+              <span class="chip">Resolving signals...</span>
+            </div>
+          </div>
+        </div>
+        <div id="bootstrap-warning" class="mt-3 hidden rounded-lg border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2 text-[11px] leading-5 text-gold-200"></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="sticky top-0 z-20 border-b border-white/10 bg-ink-950/85 backdrop-blur-xl" aria-label="Five stage progress">
+    <div class="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+      <ol id="stepper" class="grid grid-cols-5 gap-1 py-2.5">
+        <li><button class="step" data-stage="1" data-tab="xray" data-state="pending" type="button" aria-label="Stage 1, Cultural X-Ray"><span class="step-index">01</span><span class="min-w-0"><span class="step-label">Cultural X-Ray</span><span class="step-state">Waiting</span></span></button></li>
+        <li><button class="step" data-stage="2" data-tab="focus" data-state="pending" type="button" aria-label="Stage 2, Persona Math"><span class="step-index">02</span><span class="min-w-0"><span class="step-label">Persona Math</span><span class="step-state">Waiting</span></span></button></li>
+        <li><button class="step" data-stage="3" data-tab="focus" data-state="pending" type="button" aria-label="Stage 3, Synthetic Focus Group"><span class="step-index">03</span><span class="min-w-0"><span class="step-label">Focus Group</span><span class="step-state">Waiting</span></span></button></li>
+        <li><button class="step" data-stage="4" data-tab="execution" data-state="pending" type="button" aria-label="Stage 4, Owner.com Execution Pack"><span class="step-index">04</span><span class="min-w-0"><span class="step-label">Execution Pack</span><span class="step-state">Waiting</span></span></button></li>
+        <li><button class="step" data-stage="5" data-tab="gut" data-state="pending" type="button" aria-label="Stage 5, Gut vs Graph"><span class="step-index">05</span><span class="min-w-0"><span class="step-label">Gut vs Graph</span><span class="step-state">Waiting</span></span></button></li>
+      </ol>
+    </div>
+  </section>
+
+  <main id="main" class="relative z-10 mx-auto max-w-[1500px] px-4 pb-16 pt-6 sm:px-6 lg:px-8" aria-busy="false">
+    <div id="global-banner" class="banner mb-4 hidden" data-kind="warning" role="alert">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p id="global-banner-text" class="min-w-0"></p>
+        <div class="flex flex-none items-center gap-1.5">
+          <button id="banner-action" class="btn btn-ghost btn-sm hidden" type="button">Try again</button>
+          <button id="banner-dismiss" class="btn btn-ghost btn-sm" type="button" aria-label="Dismiss message">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <nav id="tabs" class="mb-5" aria-label="Alfred dashboard views">
+      <div role="tablist" aria-label="Dashboard tabs" class="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1 sm:grid-cols-4">
+        <button id="tab-xray" class="tab-button" role="tab" aria-selected="true" aria-controls="panel-xray" data-tab="xray" type="button">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
+          Cultural X-Ray
+          <span class="tab-dot hidden" data-tab-dot="xray" aria-hidden="true"></span>
+        </button>
+        <button id="tab-focus" class="tab-button" role="tab" aria-selected="false" aria-controls="panel-focus" data-tab="focus" type="button">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Focus Group
+          <span class="tab-dot hidden" data-tab-dot="focus" aria-hidden="true"></span>
+        </button>
+        <button id="tab-execution" class="tab-button" role="tab" aria-selected="false" aria-controls="panel-execution" data-tab="execution" type="button">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          Execution Hub
+          <span class="tab-dot hidden" data-tab-dot="execution" aria-hidden="true"></span>
+        </button>
+        <button id="tab-gut" class="tab-button" role="tab" aria-selected="false" aria-controls="panel-gut" data-tab="gut" type="button">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M18 3v4h4"/></svg>
+          Gut vs Graph
+          <span class="tab-dot hidden" data-tab-dot="gut" aria-hidden="true"></span>
+        </button>
+      </div>
+    </nav>
+
+    <section id="panel-xray" class="tab-panel space-y-5" role="tabpanel" aria-labelledby="tab-xray">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="kicker">Stage 01</p>
+          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">Cultural X-Ray</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Qloo's taste graph, mapped to your room, your menu, and your neighborhood.</p>
+        </div>
+        <div id="xray-stats" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div class="grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
+        <div class="card self-start overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3 sm:px-5">
+            <div>
+              <p class="label">Neighborhood map</p>
+              <p class="mt-0.5 text-[11px] text-slate-500">Qloo heat, dining peers, partner candidates, and the restaurant anchor.</p>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="badge badge-gold">Qloo heatmap</span>
+              <span class="badge badge-sky">Dining peers</span>
+              <span class="badge badge-mint">Collab partners</span>
+            </div>
+          </div>
+          <div class="relative">
+            <div id="map" class="map" role="img" aria-label="Map of the restaurant, dining peers, partner candidates, and Qloo heatmap hotspots"></div>
+            <div id="map-loading" class="map-overlay">
+              <span class="waiting-dot" aria-hidden="true"></span>
+              <p class="text-xs text-slate-300">Resolving the cultural map...</p>
+              <p class="text-[10px] text-slate-500">Qloo heat, peers, and partner candidates load with Stage 01.</p>
+            </div>
+            <div class="map-legend" aria-hidden="true">
+              <div class="legend-row"><span class="legend-dot bg-gold-400"></span>Restaurant anchor</div>
+              <div class="legend-row"><span class="legend-dot bg-gold-400/40"></span>Qloo heatmap</div>
+              <div class="legend-row"><span class="legend-dot bg-sky-400"></span>Dining peers</div>
+              <div class="legend-row"><span class="legend-dot bg-mint-400"></span>Partner candidates</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 px-4 py-2.5 text-[10px] text-slate-500 sm:px-5">
+            <span id="map-stats">Waiting for Qloo heatmap</span>
+            <span>Scroll zoom is off. Use the map controls.</span>
+          </div>
+        </div>
+
+        <div class="space-y-5">
+          <div class="card p-4 sm:p-5">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="label">Resolved signal stack</p>
+                <p class="mt-1 text-[11px] text-slate-500">Every seed is resolved through Qloo and marked as usable or not.</p>
+              </div>
+              <span class="badge badge-mint">Signal verified</span>
+            </div>
+            <div id="signal-stack" class="mt-3 space-y-2">
+              <div class="waiting min-h-[120px]"><span class="waiting-dot"></span><p class="text-xs">Waiting for Stage 01...</p></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="grid items-start gap-5 sm:grid-cols-2">
+          <div class="card p-4 sm:p-5">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="label">Vibe lexicon</p>
+                <p class="mt-1 text-[11px] text-slate-500">Harvested cultural tags that anchor the copy.</p>
+              </div>
+              <span id="vibe-count" class="mono text-[9px] text-slate-500"></span>
+            </div>
+            <div id="vibe-lexicon" class="mt-3 flex flex-wrap gap-1.5">
+              <span class="chip">Waiting for lexicon...</span>
+            </div>
+          </div>
+
+          <div class="card p-4 sm:p-5">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="label">Audience slices</p>
+                <p class="mt-1 text-[11px] text-slate-500">Qloo's top indexing brands by age bucket.</p>
+              </div>
+              <span class="badge badge-sky">Qloo math</span>
+            </div>
+            <div id="audience-slices" class="mt-3 space-y-2.5">
+              <div class="waiting min-h-[110px]"><span class="waiting-dot"></span><p class="text-xs">Waiting for audience signals...</p></div>
+            </div>
+          </div>
+      </div>
+
+      <div>
+        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="kicker">Taste DNA</p>
+            <h3 class="mt-1 font-display text-xl text-white">Five cultural domains, one room</h3>
+          </div>
+          <p class="max-w-xl text-[11px] leading-5 text-slate-500">Top entity, affinity, and the tags that make the match legible. Runners-up are ranked by the same score.</p>
+        </div>
+        <div id="dna-grid" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>
+          <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>
+          <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>
+          <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>
+          <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>
+        </div>
+      </div>
+
+      <div class="grid items-start gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <div class="card p-4 sm:p-5">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="label">Partner comparison receipts</p>
+              <p class="mt-1 text-[11px] text-slate-500">The method and affinity behind every collab signal.</p>
+            </div>
+            <span class="badge badge-mint">qloo_analysis_compare</span>
+          </div>
+          <div id="partner-receipts" class="mt-3 grid gap-2.5">
+            <div class="waiting min-h-[150px]"><span class="waiting-dot"></span><p class="text-xs">Waiting for partner comparisons...</p></div>
+          </div>
+        </div>
+        <div class="card p-4 sm:p-5">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="label">Dining peers</p>
+              <p class="mt-1 text-[11px] text-slate-500">Local rooms with the closest Qloo affinity.</p>
+            </div>
+            <span id="peer-count" class="mono text-[9px] text-slate-500"></span>
+          </div>
+          <div id="dining-peers" class="mt-3 space-y-2">
+            <div class="waiting min-h-[150px]"><span class="waiting-dot"></span><p class="text-xs">Waiting for local peers...</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-focus" class="tab-panel hidden space-y-5" role="tabpanel" aria-labelledby="tab-focus">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="kicker">Stages 02 and 03</p>
+          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">Persona Math and Focus Group</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Deterministic Qloo math first. Then three grounded regulars debate the campaign.</p>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="badge badge-mint">Qloo score_candidates</span>
+          <span class="badge badge-gold">Synthetic regulars</span>
+        </div>
+      </div>
+
+      <div id="persona-grid" class="grid gap-4 xl:grid-cols-3">
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-4/5"></div><div class="skeleton mt-5 h-24 w-full"></div></div>
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-4/5"></div><div class="skeleton mt-5 h-24 w-full"></div></div>
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-4/5"></div><div class="skeleton mt-5 h-24 w-full"></div></div>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="kicker">Stage 03</p>
+          <h3 class="mt-1 font-display text-xl text-white">The synthetic focus group</h3>
+        </div>
+        <p class="max-w-xl text-[11px] leading-5 text-slate-500">Each persona rejects a generic draft, then approves a Qloo-specific concept. Scores measure the generic draft, not the winner.</p>
+      </div>
+      <div id="focus-debates" class="space-y-4">
+        <div class="card p-5"><div class="waiting min-h-[180px]"><span class="waiting-dot"></span><p class="text-xs">The debate begins after Stage 02...</p></div></div>
+      </div>
+
+      <details id="math-receipts" class="card hidden">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 p-4 sm:p-5">
+          <div>
+            <p class="label">Deterministic receipts</p>
+            <p class="mt-1 text-[11px] text-slate-500">The raw persona math used by the focus group.</p>
+          </div>
+          <span class="badge badge-neutral">Expand</span>
+        </summary>
+        <div id="math-receipts-body" class="border-t border-white/5 p-4 sm:p-5"></div>
+      </details>
+    </section>
+
+    <section id="panel-execution" class="tab-panel hidden space-y-5" role="tabpanel" aria-labelledby="tab-execution">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="kicker">Stage 04</p>
+          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">Owner.com Execution Hub</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Four execution pillars, grounded in verified Qloo signals and ready for the operator.</p>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="badge badge-gold">SEO</span>
+          <span class="badge badge-mint">Menu + AOV</span>
+          <span class="badge badge-sky">Anti-spam SMS</span>
+          <span class="badge badge-neutral">Local collab</span>
+        </div>
+      </div>
+
+      <div id="exec-summary" class="card overflow-hidden">
+        <div class="p-5 sm:p-7">
+          <div class="skeleton h-3 w-24"></div>
+          <div class="skeleton mt-4 h-6 w-3/4"></div>
+          <div class="skeleton mt-3 h-3 w-full"></div>
+          <div class="skeleton mt-2 h-3 w-5/6"></div>
+        </div>
+      </div>
+
+      <div id="pillar-1" class="card p-5 sm:p-7">
+        <div class="waiting min-h-[120px]"><span class="waiting-dot"></span><p class="text-xs">Cultural SEO loads with Stage 04...</p></div>
+      </div>
+      <div id="pillar-2" class="card p-5 sm:p-7">
+        <div class="waiting min-h-[120px]"><span class="waiting-dot"></span><p class="text-xs">Menu and AOV engineering loads with Stage 04...</p></div>
+      </div>
+      <div id="pillar-3" class="card p-5 sm:p-7">
+        <div class="waiting min-h-[120px]"><span class="waiting-dot"></span><p class="text-xs">Anti-spam SMS and email loads with Stage 04...</p></div>
+      </div>
+      <div id="pillar-4" class="card p-5 sm:p-7">
+        <div class="waiting min-h-[120px]"><span class="waiting-dot"></span><p class="text-xs">Local collaboration loads with Stage 04...</p></div>
+      </div>
+    </section>
+
+    <section id="panel-gut" class="tab-panel hidden space-y-5" role="tabpanel" aria-labelledby="tab-gut">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="kicker">Stage 05</p>
+          <h2 class="mt-1 font-display text-2xl text-white sm:text-3xl">Gut vs. Graph Judge Proof</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-400">The same decision, with and without the graph. The receipts make the difference obvious.</p>
+        </div>
+        <span class="badge badge-mint">Blind LLM vs Qloo-grounded</span>
+      </div>
+
+      <div id="gut-note" class="card p-4 sm:p-5">
+        <div class="waiting min-h-[90px]"><span class="waiting-dot"></span><p class="text-xs">The control note loads with Stage 05...</p></div>
+      </div>
+      <div id="gut-grid" class="grid gap-4 xl:grid-cols-3">
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-4 h-24 w-full"></div><div class="skeleton mt-3 h-24 w-full"></div></div>
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-4 h-24 w-full"></div><div class="skeleton mt-3 h-24 w-full"></div></div>
+        <div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-4 h-24 w-full"></div><div class="skeleton mt-3 h-24 w-full"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/10 bg-ink-950/60">
+    <div class="mx-auto flex max-w-[1500px] flex-col gap-2 px-4 py-5 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <p>Qloo Taste Graph plus LLM orchestration. Aggregate cultural signals, not individual surveillance.</p>
+      <p id="footer-model" class="mono">Verified snapshot</p>
+    </div>
+  </footer>
+
+  <div id="custom-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="custom-title" aria-describedby="custom-description">
+    <div class="modal-panel">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="kicker">Live bootstrap</p>
+          <h2 id="custom-title" class="mt-1 font-display text-2xl text-white">Try a custom restaurant</h2>
+        </div>
+        <button id="modal-close" class="btn btn-ghost btn-sm" type="button" aria-label="Close custom restaurant dialog">Close</button>
+      </div>
+      <p id="custom-description" class="mt-2 text-xs leading-5 text-slate-400">Qloo search resolves the restaurant and location. OpenStreetMap is the fallback. The LLM infers missing menu highlights and vibe seeds. A custom run usually takes 1-2 minutes.</p>
+      <form id="custom-form" class="mt-4 space-y-3" novalidate>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="block">
+            <span class="label">Restaurant name *</span>
+            <input id="custom-name" class="field mt-1" type="text" maxlength="80" required placeholder="Lilia" autocomplete="organization">
+          </label>
+          <label class="block">
+            <span class="label">City or neighborhood *</span>
+            <input id="custom-city" class="field mt-1" type="text" maxlength="80" required placeholder="Brooklyn" autocomplete="address-level2">
+          </label>
+        </div>
+        <label class="block">
+          <span class="label">Primary goal</span>
+          <textarea id="custom-goal" class="field mt-1" maxlength="300" placeholder="Fill dead weeknights at full margin and shift delivery-app orders to direct ordering."></textarea>
+        </label>
+        <label class="block">
+          <span class="label">Optional vibe seeds</span>
+          <input id="custom-seeds" class="field mt-1" type="text" maxlength="300" placeholder="Dhamaka, Japanese Breakfast, A24">
+          <span class="mt-1 block text-[10px] leading-4 text-slate-500">Comma-separated. Use 2-4 well-known peers, musicians, films, or brands. Leave blank to let Alfred infer them.</span>
+        </label>
+        <div class="rounded-lg border border-white/10 bg-white/[0.025] p-3 text-[10px] leading-4 text-slate-400">
+          Custom menu highlights are AI-inferred. Verify prices and dishes before publishing. One live run can execute per server process.
+        </div>
+        <p id="custom-error" class="hidden rounded-lg border border-rose-400/25 bg-rose-400/[0.08] px-3 py-2 text-[11px] text-rose-200" role="alert"></p>
+        <div class="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+          <button id="modal-cancel" class="btn btn-ghost" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+            Run Live Cultural X-Ray
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+      const STAGE_LABELS = {
+        0: 'Bootstrap',
+        1: 'Cultural X-Ray',
+        2: 'Persona Math',
+        3: 'Focus Group',
+        4: 'Execution Pack',
+        5: 'Gut vs Graph'
+      };
+      const STAGE_TABS = { 1: 'xray', 2: 'focus', 3: 'focus', 4: 'execution', 5: 'gut' };
+      const TAB_ORDER = ['xray', 'focus', 'execution', 'gut'];
+      const EMPTY_DATA = () => ({
+        diagnosis: null,
+        persona_math: [],
+        focus_group: null,
+        execution_pack: null,
+        gut_vs_graph: null,
+        _meta: null
+      });
+      const state = {
+        data: null,
+        previousData: null,
+        running: false,
+        isLive: false,
+        activeStage: 0,
+        activeTab: 'xray',
+        currentStream: null,
+        streamFinished: true,
+        runToken: 0,
+        timerId: null,
+        timerStart: 0,
+        retryAction: null,
+        lastRequest: null,
+        pendingParams: null,
+        map: null,
+        mapLayers: {},
+        layerControl: null,
+        bannerAction: null,
+        modalOpen: false
+      };
+      const COPY_STORE = new Map();
+      let copySeq = 0;
+
+      const ICONS = {
+        copy: '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+        check: '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>',
+        music: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+        tag: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>',
+        film: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>',
+        tv: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="m8 3 4 4 4-4"/></svg>',
+        mic: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>',
+        spark: '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z"/><path d="M19 16v5M16.5 18.5h5"/></svg>',
+        arrow: '<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+        warning: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>'
+      };
+
+      const TAG_NOISE_FRAGMENTS = [
+        'credit card', 'parking', 'bar seating', 'small plates', 'top rated',
+        'delivery', 'takeout', 'order ahead', 'reservation', 'wheelchair',
+        'accessible', 'nfc', 'payment', 'onsite', 'on site', 'companies listed',
+        'stock exchange', 'convenience', 'event venue', 'kids menu', 'high chairs',
+        'visa', 'mastercard', 'amex', 'american express', 'bar service',
+        'paid street parking', 'free street parking', 'establishments in',
+        'established in', 'companies based', 'film distributors',
+        'production companies'
+      ];
+      const TAG_NOISE_EXACT = new Set(['other', 'dining', 'fire', 'alcohol', 'evening', 'sustainable living']);
+
+      function init() {
+        bindEvents();
+        setRunningUI(false);
+        switchTab('xray', { scroll: false });
+        fetchHealth();
+        loadPreset();
+      }
+
+      function bindEvents() {
+        $('#load-preset-btn')?.addEventListener('click', loadPreset);
+        $('#run-live-btn')?.addEventListener('click', () => {
+          if (state.running) return;
+          startLive({});
+        });
+        $('#stop-live-btn')?.addEventListener('click', stopLive);
+        $('#custom-btn')?.addEventListener('click', openModal);
+        $('#modal-close')?.addEventListener('click', closeModal);
+        $('#modal-cancel')?.addEventListener('click', closeModal);
+        $('#custom-modal')?.addEventListener('click', (event) => {
+          if (event.target === $('#custom-modal')) closeModal();
+        });
+        $('#custom-form')?.addEventListener('submit', submitCustomForm);
+        $('#banner-dismiss')?.addEventListener('click', hideBanner);
+        $('#banner-action')?.addEventListener('click', () => {
+          const action = state.bannerAction;
+          hideBanner();
+          if (typeof action === 'function') action();
+        });
+
+        $$('.tab-button').forEach((button) => {
+          button.addEventListener('click', () => switchTab(button.dataset.tab, { scroll: true }));
+          button.addEventListener('keydown', handleTabKeydown);
+        });
+        $$('.step').forEach((button) => {
+          button.addEventListener('click', () => {
+            const tab = STAGE_TABS[Number(button.dataset.stage)];
+            if (tab) switchTab(tab, { scroll: true });
+          });
+        });
+
+        document.addEventListener('click', handleCopyClick);
+        document.addEventListener('keydown', handleGlobalKeydown);
+        window.addEventListener('beforeunload', () => {
+          if (state.currentStream) {
+            state.streamFinished = true;
+            state.currentStream.close();
+          }
+        });
+      }
+
+      function handleTabKeydown(event) {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+        event.preventDefault();
+        const current = TAB_ORDER.indexOf(event.currentTarget.dataset.tab);
+        const delta = event.key === 'ArrowRight' ? 1 : -1;
+        const next = TAB_ORDER[(current + delta + TAB_ORDER.length) % TAB_ORDER.length];
+        const nextButton = $(`#tab-${next}`);
+        if (nextButton) {
+          switchTab(next, { scroll: false });
+          nextButton.focus();
+        }
+      }
+
+      function handleGlobalKeydown(event) {
+        if (event.key === 'Escape' && state.modalOpen) {
+          closeModal();
+          return;
+        }
+        if (event.key !== 'Tab' || !state.modalOpen) return;
+        const modal = $('#custom-modal');
+        const focusable = $$('button, input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])', modal)
+          .filter((element) => !element.disabled && element.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+
+      async function fetchHealth() {
+        try {
+          const response = await fetch('/api/health', { cache: 'no-store' });
+          if (!response.ok) return;
+          const health = await response.json();
+          if (health.model) {
+            $('#footer-model').textContent = `Live model: ${health.model}`;
+          }
+          if (!health.preset_available) {
+            showBanner(
+              'The verified snapshot is unavailable. You can still run the live Bonafini pipeline.',
+              'warning',
+              'Run live',
+              () => startLive({})
+            );
+          } else if (health.live_busy) {
+            showBanner(
+              'Another live run is already active. The verified snapshot is still available.',
+              'warning'
+            );
+          }
+        } catch (error) {
+          // Health is optional. The preset request will surface a useful error if needed.
+        }
+      }
+
+      async function loadPreset() {
+        if (state.running) {
+          showToast('Stop the live run before loading the snapshot.', 'error');
+          return;
+        }
+        closeStream();
+        stopTimer();
+        hideTimer();
+        setRunningUI(false);
+        state.runToken += 1;
+        state.isLive = false;
+        state.lastRequest = null;
+        state.retryAction = loadPreset;
+        hideBanner();
+        setStatus('Loading verified snapshot', 'loading');
+        const started = performance.now();
+
+        try {
+          let data = null;
+          let usedPreload = false;
+          const preload = window.__alfredPresetPromise;
+          if (preload && !window.__alfredPresetConsumed) {
+            window.__alfredPresetConsumed = true;
+            const preloadResult = await preload;
+            if (preloadResult && preloadResult.ok && preloadResult.data && preloadResult.data.diagnosis) {
+              data = preloadResult.data;
+              usedPreload = true;
+            }
+          }
+          if (!data) {
+            const response = await fetch('/api/preset/bonafini', { cache: 'default' });
+            if (!response.ok) {
+              let message = `Preset request failed (${response.status}).`;
+              try {
+                const payload = await response.json();
+                if (payload && payload.error) message = payload.error;
+              } catch (error) {
+                // Keep the status-based message.
+              }
+              throw new Error(message);
+            }
+            data = await response.json();
+          }
+          if (!data || !data.diagnosis) throw new Error('The preset response is missing the diagnosis stage.');
+          resetCopyStore();
+          state.data = data;
+          state.previousData = data;
+          state.isLive = false;
+          state.activeStage = 5;
+          renderAll(data);
+          setAllStepsDone('Ready');
+          const resource = performance.getEntriesByType('resource')
+            .filter((entry) => entry.name.endsWith('/api/preset/bonafini'))
+            .pop();
+          const elapsed = usedPreload && resource && resource.duration > 0
+            ? resource.duration
+            : performance.now() - started;
+          setStatus(`Verified snapshot ready in ${Math.round(elapsed)}ms`, 'ready');
+          showToast('Verified Bonafini snapshot loaded');
+        } catch (error) {
+          setStatus('Snapshot unavailable', 'error');
+          showBanner(
+            error.message || 'Could not load the verified snapshot.',
+            'error',
+            'Run live',
+            () => startLive({})
+          );
+          if (!state.data) {
+            renderAll(EMPTY_DATA());
+            resetSteps();
+          }
+        }
+      }
+
+      function startLive(params) {
+        if (state.running) {
+          showToast('A live run is already active.', 'error');
+          return;
+        }
+        closeStream();
+        resetCopyStore();
+        state.runToken += 1;
+        state.streamFinished = false;
+        state.running = true;
+        state.isLive = true;
+        state.lastRequest = params || {};
+        state.retryAction = () => startLive(params || {});
+        state.previousData = state.data;
+        state.data = EMPTY_DATA();
+        state.activeStage = 0;
+        state.pendingParams = params || {};
+        setRunningUI(true);
+        resetSteps();
+        TAB_ORDER.forEach((tab) => clearTabDot(tab));
+        startTimer();
+        hideBanner();
+        renderPending(params || {}, state.previousData);
+        setStatus('Live pipeline starting', 'running');
+        switchTab('xray', { scroll: false });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        const query = new URLSearchParams();
+        if (params && params.name && params.city) {
+          query.set('name', params.name);
+          query.set('city', params.city);
+          if (params.goal) query.set('goal', params.goal);
+          if (params.seeds) query.set('seeds', params.seeds);
+        } else {
+          query.set('preset', 'bonafini');
+        }
+        const token = state.runToken;
+        const es = new EventSource(`/api/stream?${query.toString()}`);
+        state.currentStream = es;
+
+        es.addEventListener('open', () => {
+          if (state.runToken !== token) return;
+          setStatus('Live stream connected. Waiting for Stage 01.', 'running');
+        });
+
+        const onEvent = (name, handler) => {
+          es.addEventListener(name, (event) => {
+            if (state.runToken !== token) return;
+            let payload = null;
+            try {
+              payload = JSON.parse(event.data);
+            } catch (error) {
+              return;
+            }
+            handler(payload);
+          });
+        };
+
+        onEvent('status', handleStatusEvent);
+        onEvent('diagnosis', handleDiagnosisEvent);
+        onEvent('persona_math', handlePersonaMathEvent);
+        onEvent('focus_group', handleFocusGroupEvent);
+        onEvent('execution_pack', handleExecutionEvent);
+        onEvent('gut_vs_graph', handleGutEvent);
+        onEvent('notice', handleNoticeEvent);
+        onEvent('done', handleDoneEvent);
+        onEvent('cancelled', handleCancelledEvent);
+
+        es.addEventListener('error', (event) => {
+          if (state.runToken !== token || state.streamFinished) return;
+          if (event && event.data) {
+            let payload = null;
+            try {
+              payload = JSON.parse(event.data);
+            } catch (error) {
+              payload = null;
+            }
+            if (payload) {
+              handleServerErrorEvent(payload);
+              return;
+            }
+          }
+          handleConnectionError();
+        });
+      }
+
+      function stopLive() {
+        if (!state.running) return;
+        state.streamFinished = true;
+        closeStream();
+        state.running = false;
+        setRunningUI(false);
+        stopTimer();
+        const stage = Math.max(1, state.activeStage || 1);
+        setStep(stage, 'stopped', 'Stopped');
+        setStatus('Stopped watching live run', 'warning');
+        showBanner(
+          'Stopped watching. The server will stop the run after the current stage, then release the live lock.',
+          'warning',
+          'Load snapshot',
+          loadPreset
+        );
+      }
+
+      function closeStream() {
+        if (state.currentStream) {
+          try {
+            state.currentStream.close();
+          } catch (error) {
+            // EventSource may already be closed.
+          }
+          state.currentStream = null;
+        }
+      }
+
+      function handleStatusEvent(payload) {
+        const stage = Number(payload.stage);
+        if (payload.message) setStatus(payload.message, 'running');
+        if (stage <= 0) {
+          resetSteps();
+          setStep(1, 'active', 'Resolving');
+          state.activeStage = 1;
+          return;
+        }
+        state.activeStage = stage;
+        setStepperStage(stage);
+      }
+
+      function handleDiagnosisEvent(diagnosis) {
+        state.data.diagnosis = diagnosis;
+        state.activeStage = Math.max(state.activeStage, 1);
+        renderHeader(state.data);
+        renderXray(diagnosis);
+        markStageDone(1);
+        setMapLoading(false);
+      }
+
+      function handlePersonaMathEvent(personaMath) {
+        state.data.persona_math = Array.isArray(personaMath) ? personaMath : [];
+        state.activeStage = Math.max(state.activeStage, 2);
+        renderFocus(state.data);
+        markStageDone(2);
+        markTabNew('focus');
+      }
+
+      function handleFocusGroupEvent(focusGroup) {
+        state.data.focus_group = focusGroup;
+        state.activeStage = Math.max(state.activeStage, 3);
+        renderFocus(state.data);
+        markStageDone(3);
+        markTabNew('focus');
+      }
+
+      function handleExecutionEvent(executionPack) {
+        state.data.execution_pack = executionPack;
+        state.activeStage = Math.max(state.activeStage, 4);
+        renderExecution(executionPack);
+        markStageDone(4);
+        markTabNew('execution');
+      }
+
+      function handleGutEvent(gutVsGraph) {
+        state.data.gut_vs_graph = gutVsGraph;
+        state.activeStage = Math.max(state.activeStage, 5);
+        renderGut(gutVsGraph);
+        markStageDone(5);
+        markTabNew('gut');
+      }
+
+      function handleNoticeEvent(payload) {
+        if (payload && payload.message) {
+          showBanner(payload.message, payload.level || 'warning');
+        }
+      }
+
+      function handleDoneEvent(payload) {
+        state.streamFinished = true;
+        closeStream();
+        state.running = false;
+        setRunningUI(false);
+        stopTimer();
+        const elapsed = Number(payload && payload.elapsed_seconds);
+        setStatus(
+          Number.isFinite(elapsed) ? `Live run complete in ${elapsed.toFixed(1)}s` : 'Live run complete',
+          'ready'
+        );
+        setAllStepsDone('Done');
+        state.activeStage = 6;
+        state.isLive = true;
+        if (state.data && state.data.diagnosis) renderHeader(state.data);
+        $('#footer-model').textContent = 'Live Qloo run';
+        showToast('Live Qloo run complete');
+        state.retryAction = () => startLive(state.lastRequest || {});
+      }
+
+      function handleServerErrorEvent(payload) {
+        state.streamFinished = true;
+        closeStream();
+        state.running = false;
+        setRunningUI(false);
+        stopTimer();
+        const stage = Number(payload && payload.stage) || state.activeStage || 1;
+        if (stage <= 0) {
+          setStep(1, 'error', 'Blocked');
+        } else {
+          setStep(stage, 'error', 'Failed');
+        }
+        setStatus('Live run failed', 'error');
+        showBanner(
+          (payload && payload.message) || 'The live pipeline failed. Load the verified snapshot or try again.',
+          'error',
+          'Try again',
+          () => startLive(state.lastRequest || {})
+        );
+      }
+
+      function handleCancelledEvent(payload) {
+        state.streamFinished = true;
+        closeStream();
+        state.running = false;
+        setRunningUI(false);
+        stopTimer();
+        const stage = Math.max(1, state.activeStage || 1);
+        setStep(stage, 'stopped', 'Stopped');
+        setStatus('Live run stopped', 'warning');
+        showBanner(
+          (payload && payload.message) || 'The live run stopped after the current stage.',
+          'warning',
+          'Load snapshot',
+          loadPreset
+        );
+      }
+
+      function handleConnectionError() {
+        state.streamFinished = true;
+        closeStream();
+        state.running = false;
+        setRunningUI(false);
+        stopTimer();
+        setStatus('Live connection lost', 'error');
+        showBanner(
+          'The live stream disconnected. The server may still be finishing the current stage. Load the verified snapshot or try again.',
+          'error',
+          'Try again',
+          () => startLive(state.lastRequest || {})
+        );
+      }
+
+      function setRunningUI(running) {
+        state.running = running;
+        const loadButton = $('#load-preset-btn');
+        const runButton = $('#run-live-btn');
+        const customButton = $('#custom-btn');
+        const stopButton = $('#stop-live-btn');
+        if (loadButton) loadButton.disabled = running;
+        if (runButton) runButton.disabled = running;
+        if (customButton) customButton.disabled = running;
+        if (stopButton) stopButton.classList.toggle('hidden', !running);
+        const main = $('#main');
+        if (main) main.setAttribute('aria-busy', running ? 'true' : 'false');
+        document.body.classList.toggle('is-running', running);
+      }
+
+      function setStatus(message, kind = 'ready') {
+        const pill = $('#live-status');
+        const text = $('#live-status-text');
+        if (pill) pill.dataset.kind = kind;
+        if (text) text.textContent = message;
+      }
+
+      function startTimer() {
+        stopTimer();
+        state.timerStart = performance.now();
+        const timer = $('#live-timer');
+        if (timer) {
+          timer.classList.remove('hidden');
+          timer.textContent = '0.0s';
+        }
+        state.timerId = window.setInterval(() => {
+          const timerElement = $('#live-timer');
+          if (timerElement) {
+            timerElement.textContent = `${((performance.now() - state.timerStart) / 1000).toFixed(1)}s`;
+          }
+        }, 100);
+      }
+
+      function stopTimer() {
+        if (state.timerId) {
+          window.clearInterval(state.timerId);
+          state.timerId = null;
+        }
+      }
+
+      function hideTimer() {
+        stopTimer();
+        const timer = $('#live-timer');
+        if (timer) {
+          timer.classList.add('hidden');
+          timer.textContent = '';
+        }
+      }
+
+      function resetSteps() {
+        $$('.step').forEach((step) => {
+          step.dataset.state = 'pending';
+          const stateText = $('.step-state', step);
+          if (stateText) stateText.textContent = 'Waiting';
+        });
+      }
+
+      function setStep(stageNumber, statusName, statusText) {
+        const step = $$('.step').find((item) => Number(item.dataset.stage) === stageNumber);
+        if (!step) return;
+        step.dataset.state = statusName;
+        const stateText = $('.step-state', step);
+        if (stateText) stateText.textContent = statusText || statusName;
+      }
+
+      function setStepperStage(activeStage) {
+        $$('.step').forEach((step) => {
+          const stageNumber = Number(step.dataset.stage);
+          if (stageNumber < activeStage) {
+            setStep(stageNumber, 'done', 'Done');
+          } else if (stageNumber === activeStage) {
+            setStep(stageNumber, 'active', 'Running');
+          } else {
+            setStep(stageNumber, 'pending', 'Waiting');
+          }
+        });
+      }
+
+      function markStageDone(stageNumber) {
+        setStep(stageNumber, 'done', 'Done');
+      }
+
+      function setAllStepsDone(label = 'Done') {
+        $$('.step').forEach((step) => {
+          setStep(Number(step.dataset.stage), 'done', label);
+        });
+        state.activeStage = 6;
+      }
+
+      function switchTab(tab, options = {}) {
+        if (!TAB_ORDER.includes(tab)) return;
+        state.activeTab = tab;
+        $$('.tab-button').forEach((button) => {
+          const active = button.dataset.tab === tab;
+          button.setAttribute('aria-selected', active ? 'true' : 'false');
+          button.classList.toggle('is-active', active);
+          if (active) clearTabDot(tab);
+        });
+        $$('.tab-panel').forEach((panel) => {
+          panel.classList.toggle('hidden', panel.id !== `panel-${tab}`);
+        });
+        if (tab === 'xray' && state.map) {
+          window.setTimeout(() => state.map.invalidateSize(), 90);
+        }
+        if (options.scroll) {
+          const tabs = $('#tabs');
+          if (tabs) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
+      function markTabNew(tab) {
+        if (tab === state.activeTab) return;
+        const dot = $(`[data-tab-dot="${tab}"]`);
+        if (dot) dot.classList.remove('hidden');
+      }
+
+      function clearTabDot(tab) {
+        const dot = $(`[data-tab-dot="${tab}"]`);
+        if (dot) dot.classList.add('hidden');
+      }
+
+      function showBanner(message, kind = 'warning', actionLabel = null, action = null) {
+        const banner = $('#global-banner');
+        const text = $('#global-banner-text');
+        const actionButton = $('#banner-action');
+        if (!banner || !text) return;
+        banner.dataset.kind = kind;
+        banner.classList.remove('hidden');
+        text.textContent = message;
+        state.bannerAction = action;
+        if (actionButton) {
+          if (actionLabel && typeof action === 'function') {
+            actionButton.textContent = actionLabel;
+            actionButton.classList.remove('hidden');
+          } else {
+            actionButton.classList.add('hidden');
+          }
+        }
+      }
+
+      function hideBanner() {
+        const banner = $('#global-banner');
+        if (banner) banner.classList.add('hidden');
+        state.bannerAction = null;
+      }
+
+      function showToast(message, kind = 'success') {
+        const toast = $('#toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.dataset.kind = kind;
+        toast.classList.remove('hidden');
+        window.clearTimeout(showToast.timeoutId);
+        showToast.timeoutId = window.setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 2600);
+      }
+
+      function openModal() {
+        if (state.running) return;
+        const modal = $('#custom-modal');
+        if (!modal) return;
+        state.modalOpen = true;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        $('#custom-error')?.classList.add('hidden');
+        window.setTimeout(() => $('#custom-name')?.focus(), 30);
+      }
+
+      function closeModal() {
+        const modal = $('#custom-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        state.modalOpen = false;
+        document.body.style.overflow = '';
+        $('#custom-btn')?.focus();
+      }
+
+      function submitCustomForm(event) {
+        event.preventDefault();
+        const name = ($('#custom-name')?.value || '').trim();
+        const city = ($('#custom-city')?.value || '').trim();
+        const goal = ($('#custom-goal')?.value || '').trim();
+        const seedText = ($('#custom-seeds')?.value || '').trim();
+        const errorBox = $('#custom-error');
+        if (!name || !city) {
+          if (errorBox) {
+            errorBox.textContent = 'Restaurant name and city are required.';
+            errorBox.classList.remove('hidden');
+          }
+          if (!name) $('#custom-name')?.focus();
+          else $('#custom-city')?.focus();
+          return;
+        }
+        const seeds = seedText
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .slice(0, 5)
+          .join(', ');
+        if (errorBox) errorBox.classList.add('hidden');
+        closeModal();
+        startLive({ name, city, goal, seeds });
+      }
+
+      function resetCopyStore() {
+        COPY_STORE.clear();
+        copySeq = 0;
+      }
+
+      function copyButton(text, label = 'Copy') {
+        const value = String(text ?? '');
+        if (!value.trim()) return '';
+        copySeq += 1;
+        const id = `copy-${copySeq}`;
+        COPY_STORE.set(id, value);
+        return `<button type="button" class="copy-btn" data-copy-id="${id}" aria-label="${escapeHtml(label)}">${ICONS.copy}<span>${escapeHtml(label)}</span></button>`;
+      }
+
+      async function handleCopyClick(event) {
+        const button = event.target.closest('[data-copy-id]');
+        if (!button) return;
+        const value = COPY_STORE.get(button.dataset.copyId);
+        if (!value) return;
+        try {
+          await copyText(value);
+          const original = button.innerHTML;
+          button.classList.add('copied');
+          button.innerHTML = `${ICONS.check}<span>Copied</span>`;
+          window.setTimeout(() => {
+            if (!button.isConnected) return;
+            button.classList.remove('copied');
+            button.innerHTML = original;
+          }, 1600);
+          showToast('Copied to clipboard');
+        } catch (error) {
+          showToast('Could not copy. Select the text manually.', 'error');
+        }
+      }
+
+      async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        textarea.remove();
+        if (!ok) throw new Error('Clipboard copy failed.');
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+          .replace(/`/g, '&#96;');
+      }
+
+      function safeUrl(value) {
+        try {
+          const url = new URL(String(value), window.location.origin);
+          if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
+        } catch (error) {
+          return '';
+        }
+        return '';
+      }
+
+      function asArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+
+      function asText(value, fallback = '') {
+        return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+      }
+
+      function fullName(value, fallback = 'Untitled') {
+        return asText(value, fallback);
+      }
+
+      function affinityNumber(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return null;
+        return Math.max(0, Math.min(1, number));
+      }
+
+      function formatAffinity(value) {
+        const number = affinityNumber(value);
+        return number === null ? 'n/a' : `${(number * 100).toFixed(1)}%`;
+      }
+
+      function affinityPercent(value) {
+        const number = affinityNumber(value);
+        return number === null ? 0 : Math.round(number * 100);
+      }
+
+      function formatAgeBucket(value) {
+        const text = asText(value, 'Age slice');
+        return text.replace(/_to_/g, '-').replace(/_/g, ' ');
+      }
+
+      function formatDate(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit'
+        });
+      }
+
+      function normalizeName(value) {
+        return String(value ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function isNoiseTag(tag) {
+        const text = String(tag ?? '').trim().toLowerCase();
+        if (!text || TAG_NOISE_EXACT.has(text)) return true;
+        if (/^\d{2}\s+\d{2}$/.test(text)) return true;
+        return TAG_NOISE_FRAGMENTS.some((fragment) => text.includes(fragment));
+      }
+
+      function usefulTags(tags, limit = 4) {
+        const seen = new Set();
+        const result = [];
+        asArray(tags).forEach((tag) => {
+          if (typeof tag !== 'string') return;
+          const text = tag.trim();
+          const key = text.toLowerCase();
+          if (!text || isNoiseTag(text) || seen.has(key)) return;
+          seen.add(key);
+          result.push(text);
+        });
+        return result.slice(0, limit);
+      }
+
+      function tagPills(tags, limit = 4, className = '') {
+        return usefulTags(tags, limit)
+          .map((tag) => `<span class="tag-pill ${className}">${escapeHtml(tag)}</span>`)
+          .join('');
+      }
+
+      function rawTagPills(tags, limit = 6, className = '') {
+        return asArray(tags)
+          .filter((tag) => typeof tag === 'string' && tag.trim())
+          .slice(0, limit)
+          .map((tag) => `<span class="tag-pill ${className}">${escapeHtml(tag.trim())}</span>`)
+          .join('');
+      }
+
+      function methodBadge(method) {
+        const text = asText(method, 'method unavailable');
+        const normalized = text.toLowerCase();
+        if (normalized.includes('qloo') || normalized.includes('compare')) {
+          return `<span class="badge badge-mint">${escapeHtml(text.replace(/_/g, ' '))}</span>`;
+        }
+        return `<span class="badge badge-gold">${escapeHtml(text.replace(/_/g, ' '))}</span>`;
+      }
+
+      function affinityTrack(value, gold = false) {
+        const percent = affinityPercent(value);
+        return `<div class="affinity-track"><div class="affinity-fill ${gold ? 'gold' : ''}" style="width:${percent}%"></div></div>`;
+      }
+
+      function waitingState(message) {
+        return `<div class="waiting"><span class="waiting-dot" aria-hidden="true"></span><p class="text-xs">${escapeHtml(message)}</p></div>`;
+      }
+
+      function charCount(value) {
+        return Array.from(String(value ?? '')).length;
+      }
+
+      function safeNumber(value, fallback = 0) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      }
+
+      function smsBadge(value) {
+        const length = charCount(value);
+        const segments = Math.max(1, Math.ceil(length / 160));
+        const tone = length <= 160 ? 'badge-mint' : 'badge-gold';
+        return `<span class="badge ${tone}">${length} chars - ${segments} segment${segments === 1 ? '' : 's'}</span>`;
+      }
+
+      function emptyBlock(message) {
+        return `<div class="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-4 text-[11px] text-slate-500">${escapeHtml(message)}</div>`;
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+      } else {
+        init();
+      }
+
+      function renderAll(data) {
+        renderHeader(data || EMPTY_DATA());
+        renderXray((data && data.diagnosis) || null);
+        renderFocus(data || EMPTY_DATA());
+        renderExecution((data && data.execution_pack) || null);
+        renderGut((data && data.gut_vs_graph) || null);
+        TAB_ORDER.forEach((tab) => clearTabDot(tab));
+        switchTab('xray', { scroll: false });
+      }
+
+      function renderPending(params, previousData) {
+        renderHeaderPending(params || {}, previousData || null);
+        renderXray(null);
+        renderFocus(EMPTY_DATA());
+        renderExecution(null);
+        renderGut(null);
+        const receipts = $('#math-receipts');
+        if (receipts) receipts.classList.add('hidden');
+        state.activeStage = 0;
+      }
+
+      function renderHeaderPending(params, previousData) {
+        const profile = previousData?.diagnosis?.restaurant_profile || {};
+        const isCustom = Boolean(params.name && params.city);
+        const name = isCustom ? params.name : (profile.name || 'Bonafini');
+        const address = isCustom
+          ? `${params.city} - resolving the exact location`
+          : (profile.address || 'Resolving verified location...');
+        const goal = asText(
+          params.goal,
+          isCustom
+            ? 'Preparing a custom cultural diagnosis and execution pack.'
+            : (profile.primary_goal || 'Preparing the live cultural diagnosis.')
+        );
+
+        const nameElement = $('#restaurant-name');
+        if (nameElement) nameElement.textContent = name;
+        const addressElement = $('#restaurant-address');
+        if (addressElement) addressElement.textContent = address;
+        const goalElement = $('#restaurant-goal');
+        if (goalElement) goalElement.textContent = goal;
+
+        const profileBadge = $('#profile-badge');
+        if (profileBadge) {
+          profileBadge.className = 'badge badge-mint';
+          profileBadge.textContent = 'Live Qloo run starting';
+        }
+        const locationBadge = $('#location-badge');
+        if (locationBadge) {
+          locationBadge.className = 'badge badge-gold';
+          locationBadge.textContent = isCustom ? 'Resolving Qloo location' : 'Verified location';
+          locationBadge.classList.remove('hidden');
+        }
+        const snapshotMeta = $('#snapshot-meta');
+        if (snapshotMeta) snapshotMeta.textContent = 'Streaming from Qloo and the live model';
+
+        const menu = !isCustom ? asArray(profile.menu_highlights) : [];
+        renderMenuChips(menu, isCustom ? 'Inferring menu highlights...' : 'Waiting for menu highlights...');
+        const seeds = !isCustom ? asArray(profile.vibe_seeds) : [];
+        renderPendingSeeds(seeds, params.seeds, isCustom);
+
+        const meta = $('#restaurant-meta');
+        if (meta) {
+          meta.innerHTML = [
+            `<span class="chip chip-mint">${ICONS.spark}<span>Live run</span></span>`,
+            `<span class="chip">${ICONS.arrow}<span>Stage 01 queued</span></span>`
+          ].join('');
+        }
+        const warning = $('#bootstrap-warning');
+        if (warning) warning.classList.add('hidden');
+      }
+
+      function renderMenuChips(menu, emptyMessage) {
+        const container = $('#menu-highlights');
+        const count = $('#menu-count');
+        const items = asArray(menu).filter((item) => typeof item === 'string' && item.trim()).slice(0, 6);
+        if (count) count.textContent = items.length ? `${items.length} dishes` : '';
+        if (!container) return;
+        if (!items.length) {
+          container.innerHTML = `<span class="chip">${escapeHtml(emptyMessage || 'No menu highlights returned.')}</span>`;
+          return;
+        }
+        container.innerHTML = items
+          .map((item) => `<span class="chip chip-gold">${escapeHtml(item)}</span>`)
+          .join('');
+      }
+
+      function renderPendingSeeds(seeds, seedText, isCustom) {
+        const container = $('#seed-chips');
+        const count = $('#seed-count');
+        if (count) count.textContent = '';
+        if (!container) return;
+        if (isCustom) {
+          const entered = String(seedText || '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .slice(0, 5);
+          if (entered.length) {
+            container.innerHTML = entered
+              .map((seed) => `<span class="seed-chip"><span class="seed-dot"></span><span>${escapeHtml(seed)}</span><span class="seed-status">seed</span></span>`)
+              .join('');
+          } else {
+            container.innerHTML = '<span class="chip chip-gold">Inferring vibe seeds...</span>';
+          }
+          return;
+        }
+        const list = asArray(seeds).filter(Boolean).slice(0, 6);
+        if (!list.length) {
+          container.innerHTML = '<span class="chip chip-gold">Waiting for Qloo signals...</span>';
+          return;
+        }
+        container.innerHTML = list
+          .map((seed) => `<span class="seed-chip"><span class="seed-dot"></span><span>${escapeHtml(seed)}</span></span>`)
+          .join('');
+      }
+
+      function renderHeader(data) {
+        const diagnosis = data?.diagnosis || {};
+        const profile = diagnosis.restaurant_profile || {};
+        const meta = data?._meta || {};
+        const seeds = asArray(diagnosis.seeds?.resolved_entities);
+
+        const nameElement = $('#restaurant-name');
+        if (nameElement) nameElement.textContent = asText(profile.name, 'Alfred');
+        const addressElement = $('#restaurant-address');
+        if (addressElement) {
+          addressElement.textContent = asText(profile.address, 'Address not returned by Qloo.');
+        }
+        const goalElement = $('#restaurant-goal');
+        if (goalElement) {
+          goalElement.textContent = asText(profile.primary_goal, 'A cultural GTM plan grounded in Qloo signals.');
+        }
+
+        const profileBadge = $('#profile-badge');
+        if (profileBadge) {
+          if (meta.label) {
+            profileBadge.className = 'badge badge-gold';
+            profileBadge.textContent = meta.label;
+          } else if (state.isLive) {
+            profileBadge.className = 'badge badge-mint';
+            profileBadge.textContent = state.running ? 'Live Qloo run' : 'Live Qloo run complete';
+          } else {
+            profileBadge.className = 'badge badge-gold';
+            profileBadge.textContent = 'Verified snapshot';
+          }
+        }
+
+        const locationBadge = $('#location-badge');
+        if (locationBadge) {
+          const source = asText(profile.location_source);
+          if (source === 'qloo_search') {
+            locationBadge.className = 'badge badge-mint';
+            locationBadge.textContent = 'Qloo location';
+            locationBadge.classList.remove('hidden');
+          } else if (source === 'nominatim') {
+            locationBadge.className = 'badge badge-gold';
+            locationBadge.textContent = 'OpenStreetMap fallback';
+            locationBadge.classList.remove('hidden');
+          } else if (source === 'verified_profile') {
+            locationBadge.className = 'badge badge-neutral';
+            locationBadge.textContent = 'Verified location';
+            locationBadge.classList.remove('hidden');
+          } else {
+            locationBadge.classList.add('hidden');
+          }
+        }
+
+        const snapshotMeta = $('#snapshot-meta');
+        if (snapshotMeta) {
+          const parts = [];
+          if (meta.generated_at) parts.push(`Snapshot built ${formatDate(meta.generated_at)}`);
+          if (meta.model) parts.push(meta.model);
+          if (!parts.length && state.isLive) parts.push('Live run');
+          snapshotMeta.textContent = parts.join(' / ');
+        }
+
+        renderMenuChips(profile.menu_highlights, 'No menu highlights returned.');
+
+        const vibeSeeds = seeds.filter((seed) => seed && !isAnchorSeed(seed, profile));
+        const seedContainer = $('#seed-chips');
+        const seedCount = $('#seed-count');
+        if (seedContainer) {
+          if (vibeSeeds.length) {
+            seedContainer.innerHTML = vibeSeeds.slice(0, 6).map((seed) => renderSeedChip(seed)).join('');
+            if (seedCount) {
+              const verified = vibeSeeds.filter((seed) => seed.usable_as_signal === true).length;
+              seedCount.textContent = `${vibeSeeds.length} seeds / ${verified} verified`;
+            }
+          } else if (asArray(profile.vibe_seeds).length) {
+            seedContainer.innerHTML = asArray(profile.vibe_seeds)
+              .slice(0, 6)
+              .map((seed) => `<span class="seed-chip"><span class="seed-dot"></span><span>${escapeHtml(seed)}</span></span>`)
+              .join('');
+            if (seedCount) seedCount.textContent = `${asArray(profile.vibe_seeds).length} seeds`;
+          } else {
+            seedContainer.innerHTML = `<span class="chip">${escapeHtml('No vibe seeds returned.')}</span>`;
+            if (seedCount) seedCount.textContent = '';
+          }
+        }
+
+        const metaContainer = $('#restaurant-meta');
+        if (metaContainer) {
+          const pieces = [];
+          const lat = Number(profile.lat);
+          const lon = Number(profile.lon);
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            pieces.push(`<span class="chip">${lat.toFixed(4)}, ${lon.toFixed(4)}</span>`);
+          }
+          if (profile.neighborhood_city) {
+            pieces.push(`<span class="chip">${escapeHtml(profile.neighborhood_city)}</span>`);
+          }
+          const website = safeUrl(profile.website);
+          if (website) {
+            pieces.push(`<a class="chip chip-sky hover:border-sky-300/40" href="${escapeHtml(website)}" target="_blank" rel="noreferrer noopener">Website ${ICONS.arrow}</a>`);
+          }
+          const requested = asText(profile.requested_name);
+          if (requested && normalizeName(requested) !== normalizeName(profile.name)) {
+            pieces.push(`<span class="chip">Requested: ${escapeHtml(requested)}</span>`);
+          }
+          asArray(profile.tag_queries).slice(0, 4).forEach((tag) => {
+            pieces.push(`<span class="chip chip-gold">${escapeHtml(tag)}</span>`);
+          });
+          metaContainer.innerHTML = pieces.join('');
+        }
+
+        const warning = $('#bootstrap-warning');
+        if (warning) {
+          if (profile.bootstrap_warning) {
+            warning.textContent = profile.bootstrap_warning;
+            warning.classList.remove('hidden');
+          } else {
+            warning.classList.add('hidden');
+          }
+        }
+      }
+
+      function renderSeedChip(seed) {
+        if (!seed || typeof seed !== 'object') return '';
+        const label = asText(seed.query_term) || asText(seed.name) || 'Seed';
+        const resolved = asText(seed.name);
+        const tags = usefulTags(seed.tags, 5);
+        const verified = seed.usable_as_signal === true;
+        const unverified = seed.usable_as_signal === false;
+        const className = verified ? 'is-verified' : unverified ? 'is-unverified' : '';
+        const status = verified ? 'signal' : unverified ? 'not signal' : 'seed';
+        const titleParts = [];
+        if (resolved && normalizeName(resolved) !== normalizeName(label)) titleParts.push(`Resolved as ${resolved}`);
+        if (tags.length) titleParts.push(`Tags: ${tags.join(', ')}`);
+        titleParts.push(verified ? 'Marked usable as a Qloo signal' : unverified ? 'Resolved but not usable as a signal' : 'Seed');
+        return `<span class="seed-chip ${className}" title="${escapeHtml(titleParts.join(' | '))}"><span class="seed-dot" aria-hidden="true"></span><span>${escapeHtml(label)}</span><span class="seed-status">${status}</span></span>`;
+      }
+
+      function isAnchorSeed(seed, profile) {
+        if (!seed || typeof seed !== 'object') return false;
+        const profileKey = normalizeName(profile?.name);
+        if (!profileKey) return false;
+        const queryKey = normalizeName(seed.query_term);
+        const resolvedKey = normalizeName(seed.name);
+        return (
+          queryKey === profileKey ||
+          resolvedKey === profileKey ||
+          (resolvedKey && profileKey && (resolvedKey.includes(profileKey) || profileKey.includes(resolvedKey)))
+        );
+      }
+
+      function renderXray(diagnosis) {
+        if (!diagnosis) {
+          const stats = $('#xray-stats');
+          if (stats) stats.innerHTML = '';
+          renderDNA(null);
+          renderSignalStack(null);
+          renderVibeLexicon(null);
+          renderAudience(null);
+          renderPartnerReceipts(null);
+          renderDiningPeers(null);
+          clearMapLayers();
+          setMapLoading(true, 'Resolving the cultural map...');
+          return;
+        }
+
+        const profile = diagnosis.restaurant_profile || {};
+        const seeds = asArray(diagnosis.seeds?.resolved_entities);
+        const peers = asArray(diagnosis.dining_peers);
+        const partners = asArray(diagnosis.partner_candidates);
+        const comparisons = asArray(diagnosis.partner_comparisons);
+        const hotspots = asArray(diagnosis.heatmap_hotspots);
+
+        const stats = $('#xray-stats');
+        if (stats) {
+          stats.innerHTML = [
+            `<span class="badge badge-neutral">${seeds.length} signals</span>`,
+            `<span class="badge badge-neutral">${peers.length} peers</span>`,
+            `<span class="badge badge-neutral">${partners.length} partners</span>`,
+            `<span class="badge badge-neutral">${hotspots.length} heat tiles</span>`
+          ].join('');
+        }
+
+        renderDNA(diagnosis.taste_dna || null);
+        renderSignalStack(diagnosis);
+        renderVibeLexicon(diagnosis.taste_dna?.vibe_lexicon || []);
+        renderAudience(diagnosis.audience_signals || null);
+        renderPartnerReceipts(comparisons);
+        renderDiningPeers(peers);
+        renderMap(diagnosis);
+      }
+
+      function renderDNA(tasteDna) {
+        const container = $('#dna-grid');
+        if (!container) return;
+        const domains = [
+          { key: 'artist', label: 'Artist', icon: 'music' },
+          { key: 'brand', label: 'Brand', icon: 'tag' },
+          { key: 'movie', label: 'Film', icon: 'film' },
+          { key: 'tv_show', label: 'TV', icon: 'tv' },
+          { key: 'podcast', label: 'Podcast', icon: 'mic' }
+        ];
+        if (!tasteDna) {
+          container.innerHTML = domains.map(() => `<div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-40"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-2/3"></div></div>`).join('');
+          return;
+        }
+        const cross = tasteDna.cross_domain_affinities || {};
+        container.innerHTML = domains.map((domain) => {
+          const items = asArray(cross[domain.key]).filter((item) => item && item.name);
+          if (!items.length) {
+            return `<article class="card p-4"><div class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-slate-400">${ICONS[domain.icon] || ''}<span>${domain.label}</span></div><div class="mt-4 text-[11px] text-slate-500">No Qloo affinity returned.</div></article>`;
+          }
+          const top = items[0];
+          const runners = items.slice(1, 4);
+          const tags = usefulTags(top.tags, 4);
+          return `<article class="card p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-slate-400">${ICONS[domain.icon] || ''}<span>${domain.label}</span></span>
+              <span class="affinity-pill">${formatAffinity(top.affinity)}</span>
+            </div>
+            <h3 class="mt-3 font-display text-[17px] leading-tight text-white">${escapeHtml(top.name)}</h3>
+            <div class="mt-2">${affinityTrack(top.affinity)}</div>
+            <div class="mt-2 flex flex-wrap gap-1">${tagPills(tags, 4)}</div>
+            ${runners.length ? `<div class="mt-3 space-y-1.5 border-t border-white/5 pt-2">${runners.map((item) => `<div class="flex items-center justify-between gap-2 text-[9.5px]"><span class="truncate text-slate-400">${escapeHtml(item.name)}</span><span class="mono flex-none text-slate-500">${formatAffinity(item.affinity)}</span></div>`).join('')}</div>` : ''}
+          </article>`;
+        }).join('');
+      }
+
+      function renderSignalStack(diagnosis) {
+        const container = $('#signal-stack');
+        if (!container) return;
+        if (!diagnosis) {
+          container.innerHTML = waitingState('Waiting for Stage 01 Qloo signals...');
+          return;
+        }
+        const profile = diagnosis.restaurant_profile || {};
+        const seeds = asArray(diagnosis.seeds?.resolved_entities);
+        const tagQueries = asArray(profile.tag_queries);
+        const harvested = asArray(diagnosis.seeds?.initial_harvested_tags);
+        const qlooProfileTags = asArray(profile.qloo_tags);
+        if (!seeds.length) {
+          container.innerHTML = emptyBlock('No resolved seed entities were returned.');
+          return;
+        }
+
+        const rows = seeds.map((seed) => {
+          const anchor = isAnchorSeed(seed, profile);
+          const verified = seed.usable_as_signal === true;
+          const unverified = seed.usable_as_signal === false;
+          const label = asText(seed.query_term) || asText(seed.name) || 'Seed';
+          const resolved = asText(seed.name);
+          const tags = usefulTags(seed.tags, 3);
+          const badge = anchor
+            ? '<span class="badge badge-neutral">Anchor</span>'
+            : verified
+              ? '<span class="badge badge-mint">Signal verified</span>'
+              : unverified
+                ? '<span class="badge badge-gold">Resolved, not signal</span>'
+                : '<span class="badge badge-neutral">Seed</span>';
+          const resolvedLine = resolved && normalizeName(resolved) !== normalizeName(label)
+            ? `<p class="mt-0.5 text-[9.5px] leading-4 text-slate-500">Resolved as ${escapeHtml(resolved)}</p>`
+            : '';
+          return `<div class="rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5"><span class="text-[11px] font-semibold text-white">${escapeHtml(label)}</span>${badge}</div>
+                ${resolvedLine}
+              </div>
+              <span class="mono flex-none pt-0.5 text-[8px] text-slate-600">${seed.affinity === null || seed.affinity === undefined ? '' : formatAffinity(seed.affinity)}</span>
+            </div>
+            ${tags.length ? `<div class="mt-1.5 flex flex-wrap gap-1">${tagPills(tags, 3)}</div>` : ''}
+          </div>`;
+        }).join('');
+
+        const tagsBlock = tagQueries.length
+          ? `<div class="mt-3 border-t border-white/5 pt-3"><div class="label">Tag queries</div><div class="mt-1.5 flex flex-wrap gap-1">${tagQueries.slice(0, 6).map((tag) => `<span class="chip chip-gold">${escapeHtml(tag)}</span>`).join('')}</div></div>`
+          : '';
+        const harvestedTags = harvested.length
+          ? `<details class="mt-3 border-t border-white/5 pt-2"><summary class="flex cursor-pointer list-none items-center justify-between gap-2 text-[10px] text-slate-400 hover:text-slate-200"><span>Harvested tags</span><span class="mono text-[8px] text-slate-600">${harvested.length}</span></summary><div class="mt-2 flex flex-wrap gap-1">${rawTagPills(harvested, 18)}</div></details>`
+          : '';
+        const profileTags = qlooProfileTags.length
+          ? `<details class="mt-2 border-t border-white/5 pt-2"><summary class="flex cursor-pointer list-none items-center justify-between gap-2 text-[10px] text-slate-400 hover:text-slate-200"><span>Qloo profile tags</span><span class="mono text-[8px] text-slate-600">${qlooProfileTags.length}</span></summary><div class="mt-2 flex flex-wrap gap-1">${rawTagPills(qlooProfileTags, 15)}</div></details>`
+          : '';
+
+        container.innerHTML = rows + tagsBlock + harvestedTags + profileTags;
+      }
+
+      function renderVibeLexicon(tags) {
+        const container = $('#vibe-lexicon');
+        const count = $('#vibe-count');
+        if (!container) return;
+        const list = usefulTags(tags, 28);
+        if (count) count.textContent = list.length ? `${list.length} tags` : '';
+        if (!list.length) {
+          container.innerHTML = emptyBlock('No vibe lexicon was returned.');
+          return;
+        }
+        container.innerHTML = list.map((tag) => `<span class="chip chip-gold">${escapeHtml(tag)}</span>`).join('');
+      }
+
+      function renderAudience(audience) {
+        const container = $('#audience-slices');
+        if (!container) return;
+        const slices = asArray(audience?.persona_age_slices);
+        if (!slices.length) {
+          container.innerHTML = emptyBlock('No audience slices were returned.');
+          return;
+        }
+        container.innerHTML = slices.map((slice) => {
+          const brands = asArray(slice.top_indexing_brands).filter(Boolean).slice(0, 6);
+          return `<div class="rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="mono text-[10px] text-gold-200">${escapeHtml(formatAgeBucket(slice.age_bucket))}</span>
+              <span class="badge badge-neutral">Age slice</span>
+            </div>
+            <div class="mt-1.5 flex flex-wrap gap-1">${brands.length ? brands.map((brand) => `<span class="chip">${escapeHtml(brand)}</span>`).join('') : '<span class="text-[10px] text-slate-500">No indexing brands returned.</span>'}</div>
+          </div>`;
+        }).join('');
+      }
+
+      function renderPartnerReceipts(comparisons) {
+        const container = $('#partner-receipts');
+        if (!container) return;
+        if (!comparisons) {
+          container.innerHTML = waitingState('Waiting for partner comparisons...');
+          return;
+        }
+        const list = asArray(comparisons).filter(Boolean);
+        if (!list.length) {
+          container.innerHTML = emptyBlock('No partner comparisons were returned.');
+          return;
+        }
+        container.innerHTML = list.map((comparison) => {
+          const name = fullName(comparison.partner_name, 'Partner');
+          const tags = usefulTags(comparison.partner_tags, 4);
+          const affinity = comparison.partner_affinity ?? findPartnerAffinity(name);
+          return `<div class="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-[12px] font-semibold text-white">${escapeHtml(name)}</p>
+                ${comparison.partner_address ? `<p class="mt-0.5 text-[9.5px] leading-4 text-slate-500">${escapeHtml(comparison.partner_address)}</p>` : ''}
+              </div>
+              <div class="flex flex-wrap items-center justify-end gap-1.5">
+                ${methodBadge(comparison.comparison_method)}
+                ${affinity !== null && affinity !== undefined ? `<span class="affinity-pill">${formatAffinity(affinity)}</span>` : ''}
+              </div>
+            </div>
+            ${tags.length ? `<div class="mt-2 flex flex-wrap gap-1">${tagPills(tags, 4)}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+
+      function renderDiningPeers(peers) {
+        const container = $('#dining-peers');
+        const count = $('#peer-count');
+        if (!container) return;
+        if (!peers) {
+          if (count) count.textContent = '';
+          container.innerHTML = waitingState('Waiting for local peers...');
+          return;
+        }
+        const list = asArray(peers).filter(Boolean).slice(0, 8);
+        if (count) count.textContent = `${list.length} peers`;
+        if (!list.length) {
+          container.innerHTML = emptyBlock('No dining peers were returned.');
+          return;
+        }
+        container.innerHTML = list.map((peer) => {
+          const tags = usefulTags(peer.tags, 3);
+          return `<div class="rank-row">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-[11px] font-semibold text-white">${escapeHtml(fullName(peer.name, 'Peer'))}</p>
+                ${peer.address ? `<p class="mt-0.5 truncate text-[9px] text-slate-500">${escapeHtml(peer.address)}</p>` : ''}
+              </div>
+              <span class="affinity-pill">${formatAffinity(peer.affinity)}</span>
+            </div>
+            <div class="mt-1.5">${affinityTrack(peer.affinity)}</div>
+            ${tags.length ? `<div class="mt-1.5 flex flex-wrap gap-1">${tagPills(tags, 3)}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+
+      function setMapLoading(show, message) {
+        const overlay = $('#map-loading');
+        if (!overlay) return;
+        overlay.classList.toggle('hidden', !show);
+        if (message) {
+          const firstParagraph = overlay.querySelector('p');
+          if (firstParagraph) firstParagraph.textContent = message;
+        }
+      }
+
+      function clearMapLayers() {
+        if (!state.map) return;
+        Object.values(state.mapLayers || {}).forEach((layer) => {
+          if (layer && state.map.hasLayer(layer)) state.map.removeLayer(layer);
+        });
+        state.mapLayers = {};
+        if (state.layerControl) {
+          state.map.removeControl(state.layerControl);
+          state.layerControl = null;
+        }
+        const stats = $('#map-stats');
+        if (stats) stats.textContent = 'Waiting for Qloo heatmap';
+      }
+
+      function mapPopup(eyebrow, title, lines) {
+        const safeLines = asArray(lines)
+          .filter((line) => line !== null && line !== undefined && String(line).trim())
+          .map((line) => `<p>${escapeHtml(line)}</p>`)
+          .join('');
+        return `<div class="map-popup"><p class="kicker">${escapeHtml(eyebrow)}</p><h4>${escapeHtml(title)}</h4>${safeLines}</div>`;
+      }
+
+      function renderMap(diagnosis) {
+        const profile = diagnosis?.restaurant_profile || {};
+        const lat = Number(profile.lat);
+        const lon = Number(profile.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          setMapLoading(true, 'No coordinates were returned for this restaurant.');
+          return;
+        }
+        if (!window.L) {
+          setMapLoading(true, 'The map library could not load. All signal data is still available below.');
+          return;
+        }
+
+        if (!state.map) {
+          state.map = L.map('map', {
+            zoomControl: true,
+            scrollWheelZoom: false,
+            attributionControl: true,
+            preferCanvas: true
+          });
+          state.map.setView([lat, lon], 14);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            maxNativeZoom: 16,
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri'
+          }).addTo(state.map);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            maxNativeZoom: 16,
+            maxZoom: 19,
+            attribution: ''
+          }).addTo(state.map);
+        }
+
+        if (state.layerControl) {
+          state.map.removeControl(state.layerControl);
+          state.layerControl = null;
+        }
+        Object.values(state.mapLayers || {}).forEach((layer) => {
+          if (layer && state.map.hasLayer(layer)) state.map.removeLayer(layer);
+        });
+
+        const heatGroup = L.layerGroup();
+        const peerGroup = L.layerGroup();
+        const partnerGroup = L.layerGroup();
+        const restaurantGroup = L.layerGroup();
+        state.mapLayers = { heat: heatGroup, peers: peerGroup, partners: partnerGroup, restaurant: restaurantGroup };
+
+        const markerIcon = L.divIcon({
+          className: 'alfred-marker-wrap',
+          html: '<span class="alfred-marker"><span class="alfred-marker-core"></span></span>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+        L.marker([lat, lon], { icon: markerIcon, zIndexOffset: 1000 })
+          .bindPopup(mapPopup('Restaurant anchor', asText(profile.name, 'Restaurant'), [profile.address, profile.neighborhood_city]))
+          .addTo(restaurantGroup);
+
+        asArray(diagnosis.heatmap_hotspots).forEach((hotspot, index) => {
+          const spotLat = Number(hotspot.lat);
+          const spotLon = Number(hotspot.lon);
+          if (!Number.isFinite(spotLat) || !Number.isFinite(spotLon)) return;
+          const affinity = affinityNumber(hotspot.affinity) ?? 0.5;
+          L.circle([spotLat, spotLon], {
+            radius: 160 + affinity * 520,
+            color: '#e8b45a',
+            weight: 1,
+            opacity: 0.38,
+            fillColor: '#e8b45a',
+            fillOpacity: 0.06 + affinity * 0.14,
+            interactive: true
+          })
+            .bindPopup(mapPopup('Qloo heatmap', `Hotspot ${index + 1}`, [`Affinity ${formatAffinity(hotspot.affinity)}`]))
+            .addTo(heatGroup);
+        });
+
+        asArray(diagnosis.dining_peers).forEach((peer) => {
+          const peerLat = Number(peer.lat);
+          const peerLon = Number(peer.lon);
+          if (!Number.isFinite(peerLat) || !Number.isFinite(peerLon)) return;
+          L.circleMarker([peerLat, peerLon], {
+            radius: 6,
+            color: '#79b8ff',
+            weight: 2,
+            opacity: 0.9,
+            fillColor: '#0b0b11',
+            fillOpacity: 1
+          })
+            .bindPopup(mapPopup('Dining peer', asText(peer.name, 'Peer'), [peer.address, `Affinity ${formatAffinity(peer.affinity)}`, usefulTags(peer.tags, 4).join(', ')]))
+            .addTo(peerGroup);
+        });
+
+        asArray(diagnosis.partner_candidates).forEach((partner) => {
+          const partnerLat = Number(partner.lat);
+          const partnerLon = Number(partner.lon);
+          if (!Number.isFinite(partnerLat) || !Number.isFinite(partnerLon)) return;
+          L.circleMarker([partnerLat, partnerLon], {
+            radius: 7,
+            color: '#54d6a0',
+            weight: 2,
+            opacity: 0.95,
+            fillColor: '#54d6a0',
+            fillOpacity: 0.24
+          })
+            .bindPopup(mapPopup('Collab partner', asText(partner.name, 'Partner'), [partner.address, `Affinity ${formatAffinity(partner.affinity)}`, usefulTags(partner.tags, 4).join(', ')]))
+            .addTo(partnerGroup);
+        });
+
+        heatGroup.addTo(state.map);
+        peerGroup.addTo(state.map);
+        partnerGroup.addTo(state.map);
+        restaurantGroup.addTo(state.map);
+
+        state.layerControl = L.control.layers(null, {
+          'Qloo heatmap': heatGroup,
+          'Dining peers': peerGroup,
+          'Collab partners': partnerGroup,
+          'Restaurant': restaurantGroup
+        }, { position: 'topright', collapsed: true }).addTo(state.map);
+
+        const points = [[lat, lon]];
+        asArray(diagnosis.heatmap_hotspots).forEach((item) => {
+          const itemLat = Number(item.lat);
+          const itemLon = Number(item.lon);
+          if (Number.isFinite(itemLat) && Number.isFinite(itemLon)) points.push([itemLat, itemLon]);
+        });
+        asArray(diagnosis.dining_peers).forEach((item) => {
+          const itemLat = Number(item.lat);
+          const itemLon = Number(item.lon);
+          if (Number.isFinite(itemLat) && Number.isFinite(itemLon)) points.push([itemLat, itemLon]);
+        });
+        asArray(diagnosis.partner_candidates).forEach((item) => {
+          const itemLat = Number(item.lat);
+          const itemLon = Number(item.lon);
+          if (Number.isFinite(itemLat) && Number.isFinite(itemLon)) points.push([itemLat, itemLon]);
+        });
+        if (points.length > 1) {
+          state.map.fitBounds(L.latLngBounds(points).pad(0.18), { maxZoom: 15 });
+        } else {
+          state.map.setView([lat, lon], 15);
+        }
+
+        const stats = $('#map-stats');
+        if (stats) {
+          stats.textContent = `${asArray(diagnosis.heatmap_hotspots).length} heat tiles / ${asArray(diagnosis.dining_peers).length} peers / ${asArray(diagnosis.partner_candidates).length} partners`;
+        }
+        setMapLoading(false);
+        window.setTimeout(() => state.map.invalidateSize(), 120);
+      }
+
+      function findPartnerAffinity(name) {
+        const key = normalizeName(name);
+        if (!key) return null;
+        let best = null;
+        const consider = (candidateName, affinity) => {
+          if (normalizeName(candidateName) !== key) return;
+          const number = affinityNumber(affinity);
+          if (number === null) return;
+          if (best === null || number > best) best = number;
+        };
+        asArray(state.data?.diagnosis?.partner_candidates).forEach((partner) => consider(partner.name, partner.affinity));
+        asArray(state.data?.diagnosis?.partner_comparisons).forEach((comparison) => consider(comparison.partner_name, comparison.partner_affinity));
+        asArray(state.data?.persona_math).forEach((math) => asArray(math.qloo_ranked_partners).forEach((partner) => consider(partner.name, partner.affinity)));
+        return best;
+      }
+
+      function findComparisonMethod(name) {
+        const key = normalizeName(name);
+        const comparison = asArray(state.data?.diagnosis?.partner_comparisons)
+          .find((item) => normalizeName(item.partner_name) === key);
+        return comparison?.comparison_method || null;
+      }
+
+      function renderFocus(data) {
+        const container = $('#persona-grid');
+        if (!container) return;
+        const math = asArray(data?.persona_math);
+        const focus = data?.focus_group || null;
+        const personas = asArray(focus?.personas);
+        const byAge = new Map();
+        personas.forEach((persona) => {
+          if (persona?.age_bucket) byAge.set(persona.age_bucket, persona);
+        });
+        const rows = math.map((entry, index) => ({
+          math: entry,
+          persona: byAge.get(entry.age_bucket) || personas[index] || null
+        }));
+        const effectiveRows = rows.length
+          ? rows
+          : personas.map((persona) => ({ math: null, persona }));
+
+        if (!effectiveRows.length) {
+          container.innerHTML = [0, 1, 2].map(skeletonPersona).join('');
+        } else {
+          container.innerHTML = effectiveRows
+            .map((row, index) => renderPersonaCard(row.math, row.persona, index))
+            .join('');
+        }
+
+        const debateContainer = $('#focus-debates');
+        const debates = asArray(focus?.focus_group_debate);
+        if (debateContainer) {
+          if (!focus) {
+            debateContainer.innerHTML = `<div class="card p-5">${waitingState('The synthetic focus group begins after Persona Math.')}</div>`;
+          } else if (!debates.length) {
+            debateContainer.innerHTML = `<div class="card p-5">${emptyBlock('No focus group debate was returned.')}</div>`;
+          } else {
+            debateContainer.innerHTML = debates
+              .map((debate, index) => renderFocusDebate(debate, index))
+              .join('');
+          }
+        }
+
+        const receipts = $('#math-receipts');
+        const receiptBody = $('#math-receipts-body');
+        const receiptsData = asArray(focus?.persona_math_receipts).length
+          ? focus.persona_math_receipts
+          : math;
+        if (receipts && receiptBody) {
+          if (!receiptsData.length) {
+            receipts.classList.add('hidden');
+            receiptBody.innerHTML = '';
+          } else {
+            receipts.classList.remove('hidden');
+            receiptBody.innerHTML = renderMathReceipts(receiptsData);
+          }
+        }
+      }
+
+      function skeletonPersona() {
+        return `<div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-4/5"></div><div class="skeleton mt-5 h-24 w-full"></div></div>`;
+      }
+
+      function renderPersonaCard(math, persona, index) {
+        const ageBucket = math?.age_bucket || persona?.age_bucket || '';
+        const personaName = asText(persona?.persona_name, `Persona ${String(index + 1).padStart(2, '0')}`);
+        const identity = asText(persona?.cultural_identity);
+        const brands = asArray(math?.top_brands || persona?.top_brands).filter(Boolean).slice(0, 5);
+        const partners = asArray(math?.qloo_ranked_partners).filter(Boolean).slice(0, 3);
+        const artists = asArray(math?.qloo_ranked_artists).filter(Boolean).slice(0, 3);
+        const topPartner = asText(persona?.top_qloo_partner_pick);
+        const topArtist = asText(persona?.top_qloo_artist_pick);
+
+        return `<article class="card p-5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="kicker">Persona ${String(index + 1).padStart(2, '0')}</p>
+              <h3 class="mt-1 font-display text-xl leading-tight text-white">${escapeHtml(personaName)}</h3>
+            </div>
+            <span class="badge badge-gold">${escapeHtml(formatAgeBucket(ageBucket))}</span>
+          </div>
+          ${identity ? `<p class="mt-2 text-[11px] leading-5 text-slate-400">${escapeHtml(identity)}</p>` : ''}
+
+          <div class="mt-4">
+            <div class="label">Top indexing brands</div>
+            <div class="mt-1.5 flex flex-wrap gap-1">${brands.length ? brands.map((brand) => `<span class="chip">${escapeHtml(brand)}</span>`).join('') : '<span class="text-[10px] text-slate-500">No brands returned.</span>'}</div>
+          </div>
+
+          <div class="mt-4 border-t border-white/5 pt-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="label">Ranked partners</span>
+              <span class="badge badge-mint">Qloo affinity</span>
+            </div>
+            <div class="mt-1.5 space-y-2.5">${partners.length ? partners.map(renderPersonaPartnerRow).join('') : '<span class="text-[10px] text-slate-500">No ranked partners returned.</span>'}</div>
+          </div>
+
+          <div class="mt-4 border-t border-white/5 pt-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="label">Ranked artists</span>
+              <span class="badge badge-neutral">Qloo affinity</span>
+            </div>
+            <div class="mt-1.5">${artists.length ? artists.map((artist, artistIndex) => `<div class="flex items-center justify-between gap-2 border-t border-white/5 py-1.5 text-[10px] first:border-t-0 first:pt-0"><span class="truncate text-slate-300"><span class="mono mr-1.5 text-[8px] text-slate-600">${String(artistIndex + 1).padStart(2, '0')}</span>${escapeHtml(fullName(artist.name, 'Artist'))}</span><span class="mono flex-none text-[9px] text-mint-300">${formatAffinity(artist.affinity)}</span></div>`).join('') : '<span class="text-[10px] text-slate-500">No ranked artists returned.</span>'}</div>
+          </div>
+
+          ${topPartner || topArtist ? `<div class="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">${topPartner ? `<span class="chip chip-mint">Partner pick: ${escapeHtml(topPartner)}</span>` : ''}${topArtist ? `<span class="chip chip-gold">Artist pick: ${escapeHtml(topArtist)}</span>` : ''}</div>` : ''}
+        </article>`;
+      }
+
+      function renderPersonaPartnerRow(partner) {
+        const tags = usefulTags(partner.tags, 3);
+        return `<div class="rank-row">
+          <div class="flex items-center justify-between gap-2 text-[10.5px]">
+            <span class="truncate font-medium text-slate-200">${escapeHtml(fullName(partner.name, 'Partner'))}</span>
+            <span class="mono flex-none text-[9px] text-mint-300">${formatAffinity(partner.affinity)}</span>
+          </div>
+          <div class="mt-1">${affinityTrack(partner.affinity)}</div>
+          ${tags.length ? `<div class="mt-1 flex flex-wrap gap-1">${tagPills(tags, 3)}</div>` : ''}
+        </div>`;
+      }
+
+      function renderFocusDebate(debate, index) {
+        const campaignType = asText(debate?.campaign_type, `Campaign ${index + 1}`);
+        const genericDraft = asText(debate?.initial_generic_draft || debate?.generic_llm_draft);
+        const winningConcept = asText(debate?.winning_qloo_grounded_concept || debate?.winning_qloo_specific_concept);
+        const critiques = asArray(debate?.persona_critiques);
+        return `<article class="card overflow-hidden">
+          <div class="flex flex-col gap-2 border-b border-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <p class="kicker">Campaign ${String(index + 1).padStart(2, '0')}</p>
+              <h3 class="mt-1 font-display text-lg leading-tight text-white">${escapeHtml(campaignType)}</h3>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="badge badge-rose">Generic draft rejected</span>
+              <span class="badge badge-mint">Qloo reframe approved</span>
+            </div>
+          </div>
+          <div class="grid gap-3 p-4 sm:p-5 lg:grid-cols-2">
+            <div class="compare-box rose">
+              <div class="compare-label">Generic LLM draft</div>
+              ${genericDraft ? `<p class="prose-copy text-[11px] leading-5 text-slate-300">${escapeHtml(genericDraft)}</p>` : emptyBlock('No generic draft was returned.')}
+            </div>
+            <div class="compare-box mint">
+              <div class="flex items-start justify-between gap-2">
+                <div class="compare-label">Winning Qloo concept</div>
+                ${copyButton(winningConcept, 'Copy concept')}
+              </div>
+              ${winningConcept ? `<p class="prose-copy text-[11px] leading-5 text-slate-200">${escapeHtml(winningConcept)}</p>` : emptyBlock('No winning concept was returned.')}
+            </div>
+          </div>
+          <div class="border-t border-white/5 p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="label">Persona critiques</div>
+              <span class="mono text-[9px] text-slate-500">${critiques.length} reviews</span>
+            </div>
+            <div class="mt-3 grid gap-2 lg:grid-cols-3">
+              ${critiques.length ? critiques.map(renderCritique).join('') : emptyBlock('No critiques were returned.')}
+            </div>
+          </div>
+        </article>`;
+      }
+
+      function renderCritique(critique) {
+        const name = asText(critique?.persona_name, 'Persona');
+        const specialty = asText(critique?.persona_specialty);
+        const score = Number(critique?.authenticity_score_out_of_100);
+        const hasScore = Number.isFinite(score);
+        const scoreClass = hasScore && score >= 80 ? 'badge-mint' : hasScore && score >= 50 ? 'badge-gold' : 'badge-rose';
+        const argument = asText(critique?.argument || critique?.critique);
+        return `<div class="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-[11px] font-semibold text-white">${escapeHtml(name)}</p>
+              ${specialty ? `<p class="mt-0.5 text-[9px] leading-4 text-slate-500">${escapeHtml(specialty)}</p>` : ''}
+            </div>
+            ${hasScore ? `<span class="badge ${scoreClass}">${score}/100</span>` : ''}
+          </div>
+          ${argument ? `<p class="mt-2 text-[10.5px] leading-5 text-slate-300">${escapeHtml(argument)}</p>` : ''}
+          ${hasScore ? `<p class="mt-1.5 text-[8px] uppercase tracking-[0.12em] text-slate-600">Generic draft score</p>` : ''}
+        </div>`;
+      }
+
+      function renderMathReceipts(receipts) {
+        const rows = receipts.map((entry) => {
+          const brands = asArray(entry.top_brands).filter(Boolean);
+          const partners = asArray(entry.qloo_ranked_partners).filter(Boolean);
+          const artists = asArray(entry.qloo_ranked_artists).filter(Boolean);
+          const partner = partners[0];
+          const artist = artists[0];
+          return `<tr class="border-t border-white/5">
+            <td class="whitespace-nowrap py-2.5 pr-3 font-mono text-[9px] text-gold-200">${escapeHtml(formatAgeBucket(entry.age_bucket))}</td>
+            <td class="py-2.5 pr-3 text-[10px] text-slate-300">${escapeHtml(brands[0] || 'n/a')}</td>
+            <td class="py-2.5 pr-3 text-[10px] text-slate-300">${partner ? `${escapeHtml(fullName(partner.name))} <span class="mono text-[8px] text-mint-300">${formatAffinity(partner.affinity)}</span>` : 'n/a'}</td>
+            <td class="py-2.5 text-[10px] text-slate-300">${artist ? `${escapeHtml(fullName(artist.name))} <span class="mono text-[8px] text-mint-300">${formatAffinity(artist.affinity)}</span>` : 'n/a'}</td>
+          </tr>`;
+        }).join('');
+        return `<div class="overflow-x-auto">
+          <table class="w-full min-w-[620px] text-left">
+            <thead><tr class="text-[8px] uppercase tracking-[0.14em] text-slate-500"><th class="pb-2 pr-3 font-medium">Age slice</th><th class="pb-2 pr-3 font-medium">Top brand</th><th class="pb-2 pr-3 font-medium">Top partner</th><th class="pb-2 font-medium">Top artist</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      }
+
+      function renderExecution(executionPack) {
+        const summary = $('#exec-summary');
+        if (!executionPack) {
+          if (summary) {
+            summary.innerHTML = `<div class="p-5 sm:p-7"><div class="skeleton h-3 w-24"></div><div class="skeleton mt-4 h-6 w-3/4"></div><div class="skeleton mt-3 h-3 w-full"></div><div class="skeleton mt-2 h-3 w-5/6"></div></div>`;
+          }
+          ['pillar-1', 'pillar-2', 'pillar-3', 'pillar-4'].forEach((id) => {
+            const element = $(`#${id}`);
+            if (element) element.innerHTML = waitingState('This execution pillar loads with Stage 04.');
+          });
+          return;
+        }
+
+        const strategic = executionPack.cultural_diagnosis_summary || {};
+        if (summary) {
+          const kpi = strategic.expected_kpi_impact || {};
+          const kpis = [
+            ['Discovery SEO', kpi.discovery_seo_lift],
+            ['AOV and check size', kpi.aov_check_size_lift],
+            ['Repeat visits', kpi.repeat_visit_frequency_lift]
+          ].filter((entry) => entry[1]);
+          summary.innerHTML = `<div class="p-5 sm:p-7">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p class="kicker">The strategic thesis</p>
+                <h3 class="mt-1 max-w-4xl font-display text-xl leading-tight text-white sm:text-2xl">${escapeHtml(asText(strategic.headline_identity, 'Cultural execution thesis'))}</h3>
+              </div>
+              <span class="badge badge-mint">Four-pillar execution</span>
+            </div>
+            ${strategic.competitive_whitespace ? `<p class="mt-3 max-w-4xl text-[12px] leading-6 text-slate-300">${escapeHtml(strategic.competitive_whitespace)}</p>` : ''}
+            <div class="mt-4 grid gap-2 lg:grid-cols-3">
+              ${kpis.length ? kpis.map(([label, value]) => `<div class="rounded-lg border border-white/5 bg-white/[0.02] p-3"><div class="label">${escapeHtml(label)}</div><p class="mt-1 text-[10.5px] leading-5 text-slate-300">${escapeHtml(value)}</p></div>`).join('') : emptyBlock('No KPI impact was returned.')}
+            </div>
+          </div>`;
+        }
+
+        renderPillarOne(executionPack.pillar_1_cultural_seo || {});
+        renderPillarTwo(executionPack.pillar_2_menu_and_aov_engineering || {});
+        renderPillarThree(executionPack.pillar_3_anti_spam_sms_and_email || {});
+        renderPillarFour(executionPack.pillar_4_local_collab_and_dead_night || {});
+      }
+
+      function pillarHeading(number, title, subtitle, badges = '') {
+        return `<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex items-start gap-3">
+            <span class="mono flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-gold-400/25 bg-gold-400/10 text-[10px] text-gold-300">${String(number).padStart(2, '0')}</span>
+            <div>
+              <h3 class="font-display text-xl leading-tight text-white">${escapeHtml(title)}</h3>
+              <p class="mt-1 max-w-2xl text-[11px] leading-5 text-slate-400">${escapeHtml(subtitle)}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5">${badges}</div>
+        </div>`;
+      }
+
+      function renderPillarOne(pillar) {
+        const container = $('#pillar-1');
+        if (!container) return;
+        const before = asText(pillar.before_generic_h1);
+        const after = asText(pillar.after_qloo_grounded_h1);
+        const meta = asText(pillar.after_meta_description);
+        const prompts = asArray(pillar.ai_search_occasion_prompts).filter(Boolean);
+        const tags = asArray(pillar.qloo_tags_used).filter(Boolean);
+
+        container.innerHTML = `${pillarHeading(
+          1,
+          'Cultural SEO and AI Search',
+          'Rewrite the storefront for the questions your Qloo audience actually asks, then give the AI answer engines something specific to cite.',
+          '<span class="badge badge-sky">Owned discovery</span><span class="badge badge-neutral">4 assets</span>'
+        )}
+        <div class="mt-5 grid gap-3 lg:grid-cols-2">
+          <div class="compare-box rose">
+            <div class="compare-label">Generic before</div>
+            ${before ? `<p class="text-[12px] leading-5 text-slate-400">${escapeHtml(before)}</p>` : emptyBlock('No generic H1 was returned.')}
+          </div>
+          <div class="compare-box mint">
+            <div class="flex items-start justify-between gap-2">
+              <div class="compare-label">Qloo-grounded after</div>
+              ${copyButton(after, 'Copy H1')}
+            </div>
+            ${after ? `<p class="font-display text-[17px] leading-6 text-white">${escapeHtml(after)}</p>` : emptyBlock('No grounded H1 was returned.')}
+          </div>
+        </div>
+        <div class="mt-3 rounded-lg border border-white/10 bg-white/[0.025] p-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="label">Meta description</span>
+            <div class="flex items-center gap-2">
+              <span class="mono text-[9px] text-slate-500">${charCount(meta)} chars</span>
+              ${copyButton(meta, 'Copy meta')}
+            </div>
+          </div>
+          ${meta ? `<p class="mt-2 text-[11px] leading-5 text-slate-300">${escapeHtml(meta)}</p>` : emptyBlock('No meta description was returned.')}
+        </div>
+        <div class="mt-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="label">AI search occasion prompts</div>
+              <p class="mt-1 text-[10px] text-slate-500">Long-tail queries mapped to a cultural occasion, not a generic category.</p>
+            </div>
+            <span class="badge badge-sky">${prompts.length} prompts</span>
+          </div>
+          <div class="mt-3 grid gap-2 lg:grid-cols-3">
+            ${prompts.length ? prompts.map((prompt, index) => `<div class="flex h-full flex-col rounded-lg border border-sky-400/15 bg-sky-400/[0.035] p-3"><div class="flex items-center justify-between gap-2"><span class="mono text-[8px] uppercase tracking-[0.12em] text-sky-300">Prompt ${String(index + 1).padStart(2, '0')}</span>${copyButton(prompt, 'Copy prompt')}</div><p class="mt-2 text-[11px] leading-5 text-slate-300">${escapeHtml(prompt)}</p></div>`).join('') : emptyBlock('No AI search prompts were returned.')}
+          </div>
+        </div>
+        <div class="mt-5 border-t border-white/5 pt-4">
+          <div class="label">Qloo tags used</div>
+          <div class="mt-2 flex flex-wrap gap-1">${tags.length ? rawTagPills(tags, 14) : '<span class="text-[10px] text-slate-500">No Qloo tags were returned.</span>'}</div>
+        </div>`;
+      }
+
+      function renderPillarTwo(pillar) {
+        const container = $('#pillar-2');
+        if (!container) return;
+        const reframes = asArray(pillar.menu_reframes).filter(Boolean);
+        const bundles = asArray(pillar.direct_ordering_upsell_bundles).filter(Boolean);
+        const b2b = pillar.b2b_catering_pitch || {};
+
+        container.innerHTML = `${pillarHeading(
+          2,
+          'Menu and AOV Engineering',
+          'Turn cultural signals into menu language, direct-order bundles, and a B2B catering pitch that protects margin.',
+          '<span class="badge badge-mint">Direct ordering</span><span class="badge badge-gold">Margin first</span>'
+        )}
+        <div class="mt-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="label">Menu reframes</div>
+              <p class="mt-1 text-[10px] text-slate-500">Original dish, upgraded cultural copy, and the Qloo rationale behind it.</p>
+            </div>
+            <span class="badge badge-neutral">${reframes.length} dishes</span>
+          </div>
+          <div class="mt-3 grid gap-3 lg:grid-cols-3">
+            ${reframes.length ? reframes.map((reframe) => `<div class="flex h-full flex-col rounded-lg border border-white/5 bg-white/[0.02] p-3.5">
+              <p class="text-[8px] uppercase tracking-[0.14em] text-slate-500">Original</p>
+              <p class="mt-1 text-[10px] leading-4 text-slate-500">${escapeHtml(asText(reframe.original_item, 'Not returned'))}</p>
+              <div class="my-2.5 h-px bg-white/6"></div>
+              <p class="text-[11px] font-semibold leading-5 text-white">${escapeHtml(asText(reframe.upgraded_name_and_copy, 'No upgraded copy returned.'))}</p>
+              <p class="mt-2 text-[10px] leading-4 text-slate-400">${escapeHtml(asText(reframe.qloo_rationale, 'No Qloo rationale returned.'))}</p>
+            </div>`).join('') : emptyBlock('No menu reframes were returned.')}
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="label">Direct ordering upsell bundles</div>
+              <p class="mt-1 text-[10px] text-slate-500">Higher-intent bundles that move orders off delivery apps.</p>
+            </div>
+            <span class="badge badge-mint">${bundles.length} bundles</span>
+          </div>
+          <div class="mt-3 grid gap-3 lg:grid-cols-3">
+            ${bundles.length ? bundles.map((bundle) => `<div class="flex h-full min-w-0 flex-col rounded-lg border border-mint-400/15 bg-mint-400/[0.03] p-3.5">
+              <div class="flex min-w-0 items-start justify-between gap-2">
+                <h4 class="min-w-0 break-words font-display text-[16px] leading-tight text-white">${escapeHtml(asText(bundle.bundle_name, 'Bundle'))}</h4>
+                ${bundle.suggested_price ? `<span class="badge badge-mint max-w-[55%] whitespace-normal text-right">${escapeHtml(bundle.suggested_price)}</span>` : ''}
+              </div>
+              <div class="mt-2.5"><div class="label">Included</div><p class="mt-1 text-[10px] leading-4 text-slate-300">${escapeHtml(asText(bundle.items_included, 'Not returned'))}</p></div>
+              <div class="mt-2.5"><div class="label">Projected AOV lift</div><p class="mt-1 text-[10px] leading-4 text-slate-400">${escapeHtml(asText(bundle.projected_aov_lift, 'Not returned'))}</p></div>
+              <div class="mt-2.5"><div class="label">Target persona</div><p class="mt-1 text-[10px] leading-4 text-slate-400">${escapeHtml(asText(bundle.target_persona, 'Not returned'))}</p></div>
+            </div>`).join('') : emptyBlock('No bundles were returned.')}
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="label">B2B catering pitch</div>
+          <p class="mt-1 text-[10px] text-slate-500">A named buyer, a specific subject line, and a ready-to-send email.</p>
+          <div class="mt-3 grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+            <div class="space-y-3">
+              <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3.5">
+                <div class="label">Target audience</div>
+                <p class="mt-1 text-[11px] leading-5 text-slate-300">${escapeHtml(asText(b2b.target_audience, 'No target audience returned.'))}</p>
+              </div>
+              <div class="rounded-lg border border-gold-400/15 bg-gold-400/[0.04] p-3.5">
+                <div class="label">Subject line</div>
+                <p class="mt-1 text-[12px] font-semibold leading-5 text-gold-100">${escapeHtml(asText(b2b.subject_line, 'No subject line returned.'))}</p>
+              </div>
+            </div>
+            <div class="rounded-lg border border-white/5 bg-black/20 p-3.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="label">Outreach email</div>
+                ${copyButton(b2b.outreach_email, 'Copy email')}
+              </div>
+              ${b2b.outreach_email ? `<pre class="code-block mt-2 max-h-[320px] overflow-y-auto">${escapeHtml(b2b.outreach_email)}</pre>` : emptyBlock('No outreach email was returned.')}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function renderPillarThree(pillar) {
+        const container = $('#pillar-3');
+        if (!container) return;
+        const campaigns = asArray(pillar.campaigns).filter(Boolean);
+        container.innerHTML = `${pillarHeading(
+          3,
+          'Anti-Spam SMS and Email',
+          'Short, specific, culturally grounded messages with character counts and receipts. No generic blast language.',
+          '<span class="badge badge-sky">SMS ready</span><span class="badge badge-neutral">Character counted</span>'
+        )}
+        <div class="mt-5 grid gap-3 xl:grid-cols-3">
+          ${campaigns.length ? campaigns.map((campaign, index) => {
+            const sms = asText(campaign.alfred_qloo_grounded_sms);
+            const spam = asText(campaign.generic_llm_spam_version);
+            const receipts = asArray(campaign.qloo_receipts_cited).filter(Boolean);
+            return `<article class="flex h-full flex-col rounded-lg border border-white/5 bg-white/[0.02] p-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="badge badge-gold">Week ${escapeHtml(campaign.week ?? index + 1)}</span>
+                <span class="mono text-[8px] uppercase tracking-[0.1em] text-slate-500">${escapeHtml(asText(campaign.target_night_or_occasion, 'Occasion'))}</span>
+              </div>
+              <div class="compare-box rose mt-3 p-2.5">
+                <div class="compare-label">Generic LLM spam</div>
+                <p class="text-[10px] leading-4 text-slate-400">${escapeHtml(spam || 'No generic version returned.')}</p>
+              </div>
+              <div class="compare-box mint mt-2 p-2.5">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="compare-label">Alfred Qloo SMS</div>
+                  ${copyButton(sms, 'Copy SMS')}
+                </div>
+                <p class="mt-1 text-[11px] leading-5 text-slate-200">${escapeHtml(sms || 'No grounded SMS returned.')}</p>
+                <div class="mt-2">${smsBadge(sms)}</div>
+              </div>
+              <div class="mt-3 rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+                <div class="label">Push title</div>
+                <p class="mt-1 text-[11px] leading-5 text-slate-300">${escapeHtml(asText(campaign.push_notification_title, 'No push title returned.'))}</p>
+              </div>
+              <div class="mt-auto pt-3">
+                <div class="label">Qloo receipts</div>
+                <div class="mt-1.5 flex flex-wrap gap-1">${receipts.length ? receipts.map((receipt) => `<span class="chip chip-mint">${escapeHtml(receipt)}</span>`).join('') : '<span class="text-[9px] text-slate-500">No receipts returned.</span>'}</div>
+              </div>
+            </article>`;
+          }).join('') : emptyBlock('No SMS campaigns were returned.')}
+        </div>
+        <p class="mt-3 text-[9.5px] leading-4 text-slate-500">Character counts use the exact SMS copy above. Over 160 characters, the count shows the multipart segment estimate.</p>`;
+      }
+
+      function renderPillarFour(pillar) {
+        const container = $('#pillar-4');
+        if (!container) return;
+        const partner = pillar.selected_local_partner || null;
+        const activation = pillar.dead_night_activation || null;
+        const partnerName = asText(partner?.name, 'Selected partner');
+        const affinity = partner ? findPartnerAffinity(partnerName) : null;
+        const method = partner ? findComparisonMethod(partnerName) : null;
+
+        container.innerHTML = `${pillarHeading(
+          4,
+          'Local Collaboration and Dead Nights',
+          'A named partner, a shared-taste rationale, a founder DM, and a high-margin Tuesday activation.',
+          '<span class="badge badge-mint">Local collab</span><span class="badge badge-gold">Dead-night margin</span>'
+        )}
+        <div class="mt-5 grid gap-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-mint-400/15 bg-mint-400/[0.03] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div class="label">Selected local partner</div>
+                <h4 class="mt-1 font-display text-xl leading-tight text-white">${escapeHtml(partnerName)}</h4>
+                ${partner?.address ? `<p class="mt-0.5 text-[10px] text-slate-500">${escapeHtml(partner.address)}</p>` : ''}
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                ${method ? methodBadge(method) : '<span class="badge badge-mint">Qloo affinity</span>'}
+                ${affinity !== null ? `<span class="affinity-pill">${formatAffinity(affinity)}</span>` : ''}
+              </div>
+            </div>
+            <div class="mt-3">
+              <div class="label">Shared taste rationale</div>
+              <p class="mt-1 text-[11px] leading-5 text-slate-300">${escapeHtml(asText(partner?.shared_taste_rationale, 'No partner rationale was returned.'))}</p>
+            </div>
+            <div class="mt-4 rounded-lg border border-white/5 bg-black/20 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="label">Ready-to-send founder DM</div>
+                ${copyButton(partner?.ready_to_send_founder_dm, 'Copy DM')}
+              </div>
+              ${partner?.ready_to_send_founder_dm ? `<pre class="code-block mt-2 max-h-[280px] overflow-y-auto">${escapeHtml(partner.ready_to_send_founder_dm)}</pre>` : emptyBlock('No founder DM was returned.')}
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-gold-400/15 bg-gold-400/[0.03] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div class="label">Dead-night activation</div>
+                <h4 class="mt-1 font-display text-xl leading-tight text-white">${escapeHtml(asText(activation?.event_name, 'No activation returned'))}</h4>
+              </div>
+              <span class="badge badge-gold">High-margin ritual</span>
+            </div>
+            <div class="mt-3">
+              <div class="label">Concept and pairing</div>
+              <p class="mt-1 text-[11px] leading-5 text-slate-300">${escapeHtml(asText(activation?.concept_and_high_margin_pairing, 'No activation concept was returned.'))}</p>
+            </div>
+            <div class="mt-3">
+              <div class="label">Vibe playlist</div>
+              <div class="mt-1.5 flex flex-wrap gap-1">${asArray(activation?.vibe_playlist_artists).filter(Boolean).map((artist) => `<span class="chip chip-gold">${escapeHtml(artist)}</span>`).join('') || '<span class="text-[9px] text-slate-500">No playlist artists returned.</span>'}</div>
+            </div>
+            <div class="mt-4 rounded-lg border border-white/5 bg-black/20 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="label">Instagram caption</div>
+                ${copyButton(activation?.instagram_caption, 'Copy caption')}
+              </div>
+              ${activation?.instagram_caption ? `<pre class="code-block mt-2 max-h-[260px] overflow-y-auto">${escapeHtml(activation.instagram_caption)}</pre>` : emptyBlock('No Instagram caption was returned.')}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function renderGut(gutVsGraph) {
+        const note = $('#gut-note');
+        const grid = $('#gut-grid');
+        if (!gutVsGraph) {
+          if (note) note.innerHTML = waitingState('The control note loads with Stage 05.');
+          if (grid) {
+            grid.innerHTML = [0, 1, 2].map(() => `<div class="card p-5"><div class="skeleton h-3 w-20"></div><div class="skeleton mt-4 h-5 w-48"></div><div class="skeleton mt-4 h-24 w-full"></div><div class="skeleton mt-3 h-24 w-full"></div></div>`).join('');
+          }
+          return;
+        }
+
+        const controlNote = asText(gutVsGraph.control_note);
+        if (note) {
+          note.innerHTML = `<div class="flex items-start gap-3">
+            <span class="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-mint-400/20 bg-mint-400/10 text-mint-300">${ICONS.spark}</span>
+            <div>
+              <div class="label">Control note</div>
+              <p class="mt-1 text-[11px] leading-5 text-slate-300">${escapeHtml(controlNote || 'No control note was returned.')}</p>
+            </div>
+          </div>`;
+        }
+
+        const comparisons = asArray(gutVsGraph.comparisons).filter(Boolean);
+        if (!grid) return;
+        if (!comparisons.length) {
+          grid.innerHTML = `<div class="xl:col-span-3">${emptyBlock('No Gut vs Graph comparisons were returned.')}</div>`;
+          return;
+        }
+        grid.innerHTML = comparisons.map((comparison, index) => {
+          const decision = asText(comparison.decision, `Decision ${index + 1}`);
+          const blind = asText(comparison.blind_llm_without_qloo);
+          const grounded = asText(comparison.alfred_with_qloo);
+          const receipts = asArray(comparison.qloo_receipts).filter(Boolean);
+          const why = asText(comparison.why_qloo_changes_the_answer);
+          return `<article class="card p-4 sm:p-5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="kicker">Decision ${String(index + 1).padStart(2, '0')}</p>
+                <h3 class="mt-1 font-display text-lg leading-tight text-white">${escapeHtml(decision)}</h3>
+              </div>
+              <span class="badge badge-mint">Graph wins</span>
+            </div>
+            <div class="compare-box rose mt-3">
+              <div class="compare-label">Blind LLM</div>
+              <p class="prose-copy text-[10.5px] leading-5 text-slate-400">${escapeHtml(blind || 'No blind answer returned.')}</p>
+            </div>
+            <div class="compare-box mint mt-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="compare-label">Alfred with Qloo</div>
+                ${copyButton(grounded, 'Copy answer')}
+              </div>
+              <p class="prose-copy text-[10.5px] leading-5 text-slate-200">${escapeHtml(grounded || 'No grounded answer returned.')}</p>
+            </div>
+            <div class="mt-3">
+              <div class="label">Qloo receipts</div>
+              <div class="mt-1.5 flex flex-wrap gap-1">${receipts.length ? receipts.map((receipt) => `<span class="chip chip-mint">${escapeHtml(receipt)}</span>`).join('') : '<span class="text-[9px] text-slate-500">No receipts returned.</span>'}</div>
+            </div>
+            <div class="mt-3 border-t border-white/5 pt-3">
+              <div class="label">Why the graph changes the answer</div>
+              <p class="mt-1 text-[10px] leading-5 text-slate-400">${escapeHtml(why || 'No explanation returned.')}</p>
+            </div>
+          </article>`;
+        }).join('');
+      }
+    })();
+  </script>
+</body>
+</html>
